@@ -1,10 +1,8 @@
+import 'package:development/services/auth_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:device_preview/device_preview.dart'; // ← Добавляем Device Preview
-
-import '/screens/auth/login_screen.dart';
-import '/services/main_service.dart'; // Твой файл с MainApp и логикой ролей
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,30 +54,3 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Обёртка, которая проверяет текущую сессию и направляет на нужный экран
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<AuthState>(
-      stream: Supabase.instance.client.auth.onAuthStateChange,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        final authState = snapshot.data;
-
-        if (authState?.event == AuthChangeEvent.signedIn ||
-            authState?.session != null) {
-          return const MainApp();
-        }
-
-        return const LoginScreen();
-      },
-    );
-  }
-}

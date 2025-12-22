@@ -1,5 +1,11 @@
+import 'package:development/screens/tabs/leader/chat_and_docs_tab.dart';
+import 'package:development/screens/tabs/leader/projects_tab.dart';
+import 'package:development/screens/tabs/leader/stages_tab.dart';
+import 'package:development/screens/tabs/leader/team_tab.dart';
+import 'package:development/screens/tabs/leader/works_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '/screens/auth/login_screen.dart';
 
 class LeaderHome extends StatefulWidget {
   const LeaderHome({super.key});
@@ -9,103 +15,80 @@ class LeaderHome extends StatefulWidget {
 }
 
 class _LeaderHomeState extends State<LeaderHome> {
-  final user = Supabase.instance.client.auth.currentUser;
-  String? fullName;
+  int _selectedIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadUserName();
+  // Список экранов для 5 вкладок руководителя
+  static final List<Widget> _pages = <Widget>[
+    const ProjectsTab(),
+    const StagesTab(),
+    const WorksTab(),
+    const TeamTab(),
+    const ChatAndDocsTab(),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
-  Future<void> _loadUserName() async {
-    if (user != null) {
-      try {
-        final response = await Supabase.instance.client
-            .from('users')
-            .select('full_name')
-            .eq('id', user!.id)
-            .single();
-
-        if (mounted) {
-          setState(() {
-            fullName = response['full_name'] as String?;
-          });
-        }
-      } catch (e) {
-        debugPrint('Ошибка загрузки имени: $e');
-      }
-    }
+  Future<void> _signOut() async {
+  try {
+    await Supabase.instance.client.auth.signOut();
+  } catch (e) {
+    debugPrint('Ошибка при выходе: $e');
   }
+
+  if (mounted) {
+    // Полная очистка навигации и переход на LoginScreen
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false, // Удаляем ВСЕ маршруты из стека
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
-    final displayName = fullName?.isNotEmpty == true
-        ? fullName
-        : user?.email?.split('@').first ?? 'Руководитель';
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Руководитель проектов'),
+        title: const Text('Руководитель'),
         centerTitle: true,
-        elevation: 2,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.engineering,
-                size: 100,
-                color: Theme.of(context).primaryColor,
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Добро пожаловать!',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                displayName!,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Theme.of(context).primaryColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: Theme.of(context).primaryColor, width: 2),
-                ),
-                child: const Text(
-                  'Роль: Руководитель',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 40),
-              Card(
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    'Вы можете создавать новые проекты, управлять этапами и работами, добавлять участников команды, загружать документацию и отслеживать весь прогресс строительства.',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _signOut,
+            tooltip: 'Выйти',
           ),
-        ),
+        ],
+      ),
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed, // Важно для 5+ вкладок
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        selectedItemColor: theme.colorScheme.primary,
+        unselectedItemColor: Colors.grey,
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.folder_special),
+            label: 'Проекты',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.view_week), label: 'Этапы'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assignment),
+            label: 'Работы',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.group), label: 'Команда'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble),
+            label: 'Чат & Доки',
+          ),
+        ],
       ),
     );
   }

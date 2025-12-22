@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '/screens/auth/role_selection_screen.dart';
-import '/services/main_service.dart'; // Твой файл с MainApp (AuthWrapper использует его)
+import '/services/main_service.dart'; // Твой файл с MainApp
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -17,7 +17,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController = TextEditingController();
 
   String? _selectedRoleName; // Для отображения в кнопке
-  String? _selectedRoleValue; // 'leader', 'worker', 'client' — сохраняется в metadata
+  String? _selectedRoleValue; // 'leader', 'worker', 'client' — сохраняется в primary_role
 
   bool _isLoading = false;
 
@@ -44,7 +44,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _register() async {
-    // Проверка выбора роли
     if (_selectedRoleValue == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Пожалуйста, выберите роль')),
@@ -52,7 +51,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Проверка пароля
     if (_passwordController.text.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Пароль должен быть не менее 6 символов')),
@@ -71,40 +69,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
             'full_name': _fullNameController.text.trim(),
           if (_phoneController.text.trim().isNotEmpty)
             'phone': _phoneController.text.trim(),
-          'preferred_role': _selectedRoleValue, // Сохраняем роль в metadata
         },
       );
 
-      // Поскольку подтверждение email отключено — сессия сразу активна
-      if (response.session != null && mounted) {
-        // Переходим в основной интерфейс приложения
-        // AuthWrapper автоматически определит сессию и покажет MainApp
+      if (response.user != null && mounted) {
+        // Обновляем primary_role в users (триггер уже создал строку)
+        await Supabase.instance.client
+            .from('users')
+            .update({'primary_role': _selectedRoleValue})
+            .eq('id', response.user!.id);
+
+        // Переходим в основной интерфейс
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const MainApp()),
-          (route) => false, // Удаляем все предыдущие экраны
+          (route) => false,
         );
       } else if (response.user != null) {
-        // На случай, если сессия null (редко), но пользователь создан
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Регистрация успешна! Войдите в аккаунт.')),
         );
-        Navigator.pop(context); // Возврат на LoginScreen
+        Navigator.pop(context);
       }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
+        SnackBar(content: Text(e.message)),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Произошла неизвестная ошибка')),
+        const SnackBar(content: Text('Ошибка регистрации')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -113,16 +108,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Регистрация'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Регистрация')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Кнопка выбора роли — красивая, как в примере
+            // Кнопка выбора роли
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -140,9 +131,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   side: BorderSide(color: theme.colorScheme.primary, width: 2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
               ),
             ),
@@ -150,74 +139,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
             TextField(
               controller: _fullNameController,
-              decoration: const InputDecoration(
-                labelText: 'ФИО (опционально)',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'ФИО'),
             ),
             const SizedBox(height: 16),
-
             TextField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Email'),
             ),
             const SizedBox(height: 16),
-
             TextField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Телефон (опционально)',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Телефон (опционально)'),
             ),
             const SizedBox(height: 16),
-
             TextField(
               controller: _passwordController,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Пароль (мин. 6 символов)',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Пароль'),
             ),
             const SizedBox(height: 32),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _register,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 4,
-                ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Зарегистрироваться',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-              ),
+            ElevatedButton(
+              onPressed: _isLoading ? null : _register,
+              child: _isLoading
+                  ? const CircularProgressIndicator()
+                  : const Text('Зарегистрироваться'),
             ),
           ],
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    _fullNameController.dispose();
-    _phoneController.dispose();
-    super.dispose();
   }
 }

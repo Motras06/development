@@ -12,122 +12,449 @@
 ---
 структура БД в качестве JSON
 ```json
-{
-  "database_structure": {
-    "enums": {
-      "project_status": ["active", "paused", "archived", "completed"],
-      "participant_role": ["leader", "worker", "client"],
-      "stage_status": ["planned", "in_progress", "paused", "completed"],
-      "work_status": ["todo", "in_progress", "done", "delayed"],
-      "comment_entity_type": ["project", "stage", "work"]
-    },
-    "tables": {
-      "users": {
-        "columns": {
-          "id": { "type": "UUID", "primary_key": true, "default": "uuid_generate_v4()" },
-          "email": { "type": "TEXT", "unique": true, "not_null": true },
-          "full_name": { "type": "TEXT" },
-          "phone": { "type": "TEXT" },
-          "is_admin": { "type": "BOOLEAN", "default": false },
-          "created_at": { "type": "TIMESTAMP WITH TIME ZONE", "default": "CURRENT_TIMESTAMP" }
-        },
-        "indexes": ["email"]
-      },
-      "projects": {
-        "columns": {
-          "id": { "type": "UUID", "primary_key": true, "default": "uuid_generate_v4()" },
-          "name": { "type": "TEXT", "not_null": true },
-          "description": { "type": "TEXT" },
-          "start_date": { "type": "DATE" },
-          "end_date": { "type": "DATE" },
-          "status": { "type": "project_status", "default": "active" },
-          "created_by": { "type": "UUID", "references": "users(id)", "on_delete": "SET NULL" },
-          "created_at": { "type": "TIMESTAMP WITH TIME ZONE", "default": "CURRENT_TIMESTAMP" },
-          "updated_at": { "type": "TIMESTAMP WITH TIME ZONE", "default": "CURRENT_TIMESTAMP" }
-        },
-        "indexes": ["name", "status", "start_date", "end_date", "created_by"]
-      },
-      "project_participants": {
-        "columns": {
-          "id": { "type": "UUID", "primary_key": true, "default": "uuid_generate_v4()" },
-          "project_id": { "type": "UUID", "references": "projects(id)", "on_delete": "CASCADE" },
-          "user_id": { "type": "UUID", "references": "users(id)", "on_delete": "CASCADE" },
-          "role": { "type": "participant_role", "not_null": true },
-          "joined_at": { "type": "TIMESTAMP WITH TIME ZONE", "default": "CURRENT_TIMESTAMP" }
-        },
-        "constraints": [{ "unique": ["project_id", "user_id"] }],
-        "indexes": ["project_id", "user_id", "role"]
-      },
-      "stages": {
-        "columns": {
-          "id": { "type": "UUID", "primary_key": true, "default": "uuid_generate_v4()" },
-          "project_id": { "type": "UUID", "references": "projects(id)", "on_delete": "CASCADE" },
-          "name": { "type": "TEXT", "not_null": true },
-          "description": { "type": "TEXT" },
-          "start_date": { "type": "DATE" },
-          "end_date": { "type": "DATE" },
-          "status": { "type": "stage_status", "default": "planned" },
-          "material_resources": { "type": "JSONB" },
-          "non_material_resources": { "type": "JSONB" },
-          "created_at": { "type": "TIMESTAMP WITH TIME ZONE", "default": "CURRENT_TIMESTAMP" },
-          "updated_at": { "type": "TIMESTAMP WITH TIME ZONE", "default": "CURRENT_TIMESTAMP" }
-        },
-        "indexes": ["project_id", "status", "start_date", "end_date"]
-      },
-      "works": {
-        "columns": {
-          "id": { "type": "UUID", "primary_key": true, "default": "uuid_generate_v4()" },
-          "stage_id": { "type": "UUID", "references": "stages(id)", "on_delete": "CASCADE" },
-          "name": { "type": "TEXT", "not_null": true },
-          "description": { "type": "TEXT" },
-          "start_date": { "type": "DATE" },
-          "end_date": { "type": "DATE" },
-          "status": { "type": "work_status", "default": "todo" },
-          "assigned_to": { "type": "UUID", "references": "users(id)", "on_delete": "SET NULL" },
-          "created_at": { "type": "TIMESTAMP WITH TIME ZONE", "default": "CURRENT_TIMESTAMP" },
-          "updated_at": { "type": "TIMESTAMP WITH TIME ZONE", "default": "CURRENT_TIMESTAMP" }
-        },
-        "indexes": ["stage_id", "status", "assigned_to", "start_date", "end_date"]
-      },
-      "technical_documents": {
-        "columns": {
-          "id": { "type": "UUID", "primary_key": true, "default": "uuid_generate_v4()" },
-          "project_id": { "type": "UUID", "references": "projects(id)", "on_delete": "CASCADE" },
-          "name": { "type": "TEXT", "not_null": true },
-          "file_url": { "type": "TEXT" },
-          "description": { "type": "TEXT" },
-          "uploaded_by": { "type": "UUID", "references": "users(id)", "on_delete": "SET NULL" },
-          "uploaded_at": { "type": "TIMESTAMP WITH TIME ZONE", "default": "CURRENT_TIMESTAMP" }
-        },
-        "indexes": ["project_id"]
-      },
-      "comments": {
-        "columns": {
-          "id": { "type": "UUID", "primary_key": true, "default": "uuid_generate_v4()" },
-          "entity_type": { "type": "comment_entity_type", "not_null": true },
-          "entity_id": { "type": "UUID", "not_null": true },
-          "user_id": { "type": "UUID", "references": "users(id)", "on_delete": "CASCADE" },
-          "text": { "type": "TEXT", "not_null": true },
-          "created_at": { "type": "TIMESTAMP WITH TIME ZONE", "default": "CURRENT_TIMESTAMP" }
-        },
-        "indexes": [["entity_type", "entity_id"], "user_id"]
-      },
-      "messages": {
-        "columns": {
-          "id": { "type": "UUID", "primary_key": true, "default": "uuid_generate_v4()" },
-          "project_id": { "type": "UUID", "references": "projects(id)", "on_delete": "CASCADE" },
-          "sender_id": { "type": "UUID", "references": "users(id)", "on_delete": "CASCADE" },
-          "receiver_id": { "type": "UUID", "references": "users(id)", "on_delete": "SET NULL" },
-          "text": { "type": "TEXT", "not_null": true },
-          "is_notification": { "type": "BOOLEAN", "default": false },
-          "created_at": { "type": "TIMESTAMP WITH TIME ZONE", "default": "CURRENT_TIMESTAMP" },
-          "read_at": { "type": "TIMESTAMP WITH TIME ZONE" }
-        },
-        "indexes": ["project_id", "sender_id", "receiver_id", "created_at"]
-      }
-    }
+[
+  {
+    "table_name": "comments",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "uuid_generate_v4()"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "entity_type",
+    "data_type": "USER-DEFINED",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "comments",
+    "column_name": "entity_id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "comments",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "comments",
+    "column_name": "text",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "comments",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "CURRENT_TIMESTAMP"
+  },
+  {
+    "table_name": "messages",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "uuid_generate_v4()"
+  },
+  {
+    "table_name": "messages",
+    "column_name": "project_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "messages",
+    "column_name": "sender_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "messages",
+    "column_name": "receiver_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "messages",
+    "column_name": "text",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "messages",
+    "column_name": "is_notification",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "messages",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "CURRENT_TIMESTAMP"
+  },
+  {
+    "table_name": "messages",
+    "column_name": "read_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "project_participants",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "uuid_generate_v4()"
+  },
+  {
+    "table_name": "project_participants",
+    "column_name": "project_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "project_participants",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "project_participants",
+    "column_name": "role",
+    "data_type": "USER-DEFINED",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "project_participants",
+    "column_name": "joined_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "CURRENT_TIMESTAMP"
+  },
+  {
+    "table_name": "projects",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "uuid_generate_v4()"
+  },
+  {
+    "table_name": "projects",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "start_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "end_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "status",
+    "data_type": "USER-DEFINED",
+    "is_nullable": "YES",
+    "column_default": "'active'::project_status"
+  },
+  {
+    "table_name": "projects",
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "CURRENT_TIMESTAMP"
+  },
+  {
+    "table_name": "projects",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "CURRENT_TIMESTAMP"
+  },
+  {
+    "table_name": "stages",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "uuid_generate_v4()"
+  },
+  {
+    "table_name": "stages",
+    "column_name": "project_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "stages",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "stages",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "stages",
+    "column_name": "start_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "stages",
+    "column_name": "end_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "stages",
+    "column_name": "status",
+    "data_type": "USER-DEFINED",
+    "is_nullable": "YES",
+    "column_default": "'planned'::stage_status"
+  },
+  {
+    "table_name": "stages",
+    "column_name": "material_resources",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "stages",
+    "column_name": "non_material_resources",
+    "data_type": "jsonb",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "stages",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "CURRENT_TIMESTAMP"
+  },
+  {
+    "table_name": "stages",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "CURRENT_TIMESTAMP"
+  },
+  {
+    "table_name": "technical_documents",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "uuid_generate_v4()"
+  },
+  {
+    "table_name": "technical_documents",
+    "column_name": "project_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "technical_documents",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "technical_documents",
+    "column_name": "file_url",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "technical_documents",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "technical_documents",
+    "column_name": "uploaded_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "technical_documents",
+    "column_name": "uploaded_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "CURRENT_TIMESTAMP"
+  },
+  {
+    "table_name": "users",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "uuid_generate_v4()"
+  },
+  {
+    "table_name": "users",
+    "column_name": "email",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "users",
+    "column_name": "full_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "users",
+    "column_name": "phone",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "users",
+    "column_name": "is_admin",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "table_name": "users",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "CURRENT_TIMESTAMP"
+  },
+  {
+    "table_name": "users",
+    "column_name": "primary_role",
+    "data_type": "USER-DEFINED",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "works",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "uuid_generate_v4()"
+  },
+  {
+    "table_name": "works",
+    "column_name": "stage_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "works",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "works",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "works",
+    "column_name": "start_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "works",
+    "column_name": "end_date",
+    "data_type": "date",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "works",
+    "column_name": "status",
+    "data_type": "USER-DEFINED",
+    "is_nullable": "YES",
+    "column_default": "'todo'::work_status"
+  },
+  {
+    "table_name": "works",
+    "column_name": "assigned_to",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "works",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "CURRENT_TIMESTAMP"
+  },
+  {
+    "table_name": "works",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "CURRENT_TIMESTAMP"
   }
-}
+]
 ```
 
 ## предпологаемая структура

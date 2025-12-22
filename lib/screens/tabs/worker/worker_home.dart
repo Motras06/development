@@ -32,14 +32,20 @@ class _WorkerHomeState extends State<WorkerHome> {
 
   // Функция выхода из аккаунта
   Future<void> _signOut() async {
+  try {
     await Supabase.instance.client.auth.signOut();
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
-    }
+  } catch (e) {
+    debugPrint('Ошибка при выходе: $e');
   }
+
+  if (mounted) {
+    // Полная очистка навигации и переход на LoginScreen
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false, // Удаляем ВСЕ маршруты из стека
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
