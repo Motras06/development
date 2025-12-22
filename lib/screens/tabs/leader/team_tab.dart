@@ -24,6 +24,8 @@ class _TeamTabState extends State<TeamTab> {
   }
 
   Future<void> _loadProjects() async {
+    if (userId == null) return;
+
     try {
       final data = await _supabase
           .from('projects')
@@ -43,137 +45,184 @@ class _TeamTabState extends State<TeamTab> {
   }
 
   Future<void> _inviteMember() async {
-    if (_selectedProject == null) return;
+    if (_selectedProject == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Сначала выберите проект')),
+      );
+      return;
+    }
 
     final emailController = TextEditingController();
     ParticipantRole? selectedRole = ParticipantRole.worker;
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Пригласить участника'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email приглашаемого',
-                hintText: 'example@email.com',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Пригласить участника'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email приглашаемого',
+                    hintText: 'example@email.com',
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                DropdownButton<ParticipantRole>(
+                  value: selectedRole,
+                  isExpanded: true,
+                  hint: const Text('Выберите роль'),
+                  items: ParticipantRole.values.map((role) {
+                    return DropdownMenuItem(
+                      value: role,
+                      child: Text(_roleDisplayName(role)),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setDialogState(() => selectedRole = value);
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Отмена'),
               ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-            DropdownButton<ParticipantRole>(
-              value: selectedRole,
-              isExpanded: true,
-              items: ParticipantRole.values.map((role) {
-                return DropdownMenuItem(
-                  value: role,
-                  child: Text(role.name),
-                );
-              }).toList(),
-              onChanged: (value) => setState(() => selectedRole = value),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
-          TextButton(
-            onPressed: () async {
-              final email = emailController.text.trim();
-              if (email.isEmpty) return;
+              TextButton(
+                onPressed: () async {
+                  final email = emailController.text.trim();
+                  if (email.isEmpty || selectedRole == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Заполните все поля')),
+                    );
+                    return;
+                  }
 
-              try {
-                // Проверяем, есть ли такой пользователь
-                final userData = await _supabase
-                    .from('users')
-                    .select('id')
-                    .eq('email', email)
-                    .maybeSingle();
+                  try {
+                    final userData = await _supabase
+                        .from('users')
+                        .select('id')
+                        .eq('email', email)
+                        .maybeSingle();
 
-                if (userData == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Пользователь с таким email не найден')),
-                  );
-                  return;
-                }
+                    if (userData == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Пользователь с таким email не найден')),
+                      );
+                      return;
+                    }
 
-                final targetUserId = userData['id'];
+                    final targetUserId = userData['id'];
 
-                // Добавляем в проект
-                await _supabase.from('project_participants').insert({
-                  'project_id': _selectedProject!['id'],
-                  'user_id': targetUserId,
-                  'role': selectedRole!.name,
-                });
+                    // Проверка на дубликат
+                    final existing = await _supabase
+                        .from('project_participants')
+                        .select()
+                        .eq('project_id', _selectedProject!['id'])
+                        .eq('user_id', targetUserId)
+                        .maybeSingle();
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Участник приглашён!')),
-                );
-                Navigator.pop(context);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Ошибка приглашения: $e')),
-                );
-              }
-            },
-            child: const Text('Пригласить'),
-          ),
-        ],
+                    if (existing != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Пользователь уже в проекте')),
+                      );
+                      Navigator.pop(context);
+                      return;
+                    }
+
+                    await _supabase.from('project_participants').insert({
+                      'project_id': _selectedProject!['id'],
+                      'user_id': targetUserId,
+                      'role': selectedRole!.name,
+                    });
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Участник успешно приглашён!')),
+                      );
+                    }
+                    Navigator.pop(context);
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Ошибка приглашения: $e')),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Пригласить'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   Future<void> _changeRole(Map<String, dynamic> participant) async {
-    final currentRole = participant['role'] as String;
+    final currentRoleStr = participant['role'] as String;
     ParticipantRole? newRole = ParticipantRole.values.firstWhere(
-      (r) => r.name == currentRole,
+      (r) => r.name == currentRoleStr,
       orElse: () => ParticipantRole.worker,
     );
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Изменить роль'),
-        content: DropdownButton<ParticipantRole>(
-          value: newRole,
-          isExpanded: true,
-          items: ParticipantRole.values.map((role) {
-            return DropdownMenuItem(value: role, child: Text(role.name));
-          }).toList(),
-          onChanged: (value) => setState(() => newRole = value),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
-          TextButton(
-            onPressed: () async {
-              try {
-                await _supabase
-                    .from('project_participants')
-                    .update({'role': newRole!.name})
-                    .eq('id', participant['id']);
-
-                Navigator.pop(context);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Ошибка изменения роли: $e')),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Изменить роль'),
+            content: DropdownButton<ParticipantRole>(
+              value: newRole,
+              isExpanded: true,
+              items: ParticipantRole.values.map((role) {
+                return DropdownMenuItem(
+                  value: role,
+                  child: Text(_roleDisplayName(role)),
                 );
-              }
-            },
-            child: const Text('Сохранить'),
-          ),
-        ],
+              }).toList(),
+              onChanged: (value) => setDialogState(() => newRole = value),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    await _supabase
+                        .from('project_participants')
+                        .update({'role': newRole!.name})
+                        .eq('id', participant['id']);
+                    Navigator.pop(context);
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ошибка изменения роли: $e')),
+                    );
+                  }
+                },
+                child: const Text('Сохранить'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   Future<void> _removeMember(Map<String, dynamic> participant) async {
+    final userData = participant['users'] as Map<String, dynamic>?;
+    final email = userData?['email'] as String? ?? 'пользователя';
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Удалить участника'),
-        content: Text('Вы уверены, что хотите удалить ${participant['users']['email']} из проекта?'),
+        content: Text('Вы уверены, что хотите удалить $email из проекта?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
           TextButton(
@@ -253,7 +302,8 @@ class _TeamTabState extends State<TeamTab> {
                         .from('project_participants')
                         .stream(primaryKey: ['id'])
                         .eq('project_id', _selectedProject!['id'])
-                        .order('joined_at', ascending: true),
+                        .order('joined_at', ascending: true)
+                        .select('*, users(full_name, email, phone)'), // ← КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
@@ -266,8 +316,9 @@ class _TeamTabState extends State<TeamTab> {
                       final participants = snapshot.data ?? [];
 
                       final filtered = participants.where((p) {
-                        final email = (p['users']['email'] as String?)?.toLowerCase() ?? '';
-                        final name = (p['users']['full_name'] as String?)?.toLowerCase() ?? '';
+                        final user = p['users'] as Map<String, dynamic>?;
+                        final email = (user?['email'] as String?)?.toLowerCase() ?? '';
+                        final name = (user?['full_name'] as String?)?.toLowerCase() ?? '';
                         return email.contains(_searchQuery.toLowerCase()) ||
                             name.contains(_searchQuery.toLowerCase());
                       }).toList();
@@ -280,27 +331,35 @@ class _TeamTabState extends State<TeamTab> {
                         itemCount: filtered.length,
                         itemBuilder: (context, index) {
                           final participant = filtered[index];
-                          final user = participant['users'];
+                          final user = participant['users'] as Map<String, dynamic>?;
                           final roleStr = participant['role'] as String;
+
                           final role = ParticipantRole.values.firstWhere(
                             (r) => r.name == roleStr,
                             orElse: () => ParticipantRole.worker,
                           );
 
+                          final fullName = user?['full_name'] as String? ?? 'Без имени';
+                          final email = user?['email'] as String? ?? 'Email не указан';
+                          final phone = user?['phone'] as String?;
+
                           return ListTile(
                             leading: CircleAvatar(
                               backgroundColor: _getRoleColor(role),
-                              child: Text(role.name[0].toUpperCase()),
+                              child: Text(
+                                role.name[0].toUpperCase(),
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
                             ),
                             title: Text(
-                              user['full_name'] ?? 'Без имени',
+                              fullName,
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(user['email'] ?? 'Email не указан'),
-                                if (user['phone'] != null) Text(user['phone']),
+                                Text(email),
+                                if (phone != null) Text(phone),
                                 Text(
                                   'Роль: ${_roleDisplayName(role)}',
                                   style: TextStyle(color: _getRoleColor(role)),
@@ -344,5 +403,11 @@ class _TeamTabState extends State<TeamTab> {
       ParticipantRole.client => 'Заказчик',
       ParticipantRole.admin => 'Администратор',
     };
+  }
+}
+
+extension on SupabaseStreamBuilder {
+  Stream<List<Map<String, dynamic>>>? select(String s) {
+    return null;
   }
 }
