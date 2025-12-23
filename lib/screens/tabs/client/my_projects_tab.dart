@@ -11,7 +11,7 @@ class MyProjectsTab extends StatefulWidget {
 
 class _MyProjectsTabState extends State<MyProjectsTab> {
   final _supabase = Supabase.instance.client;
-  final userId = Supabase.instance.client.auth.currentUser?.id;
+  final String? userId = Supabase.instance.client.auth.currentUser?.id;
   String _searchQuery = '';
 
   @override
@@ -23,6 +23,7 @@ class _MyProjectsTabState extends State<MyProjectsTab> {
     return Scaffold(
       body: Column(
         children: [
+          // Поиск
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
@@ -35,12 +36,14 @@ class _MyProjectsTabState extends State<MyProjectsTab> {
             ),
           ),
 
+          // Список проектов
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
-              // Только по user_id — один фильтр, работает всегда
+              // Подписываемся на все записи, где user_id = текущий пользователь
               stream: _supabase
-                  .from('public.project_participants:user_id=eq.$userId')
-                  .stream(primaryKey: ['id']),
+                  .from('project_participants')
+                  .stream(primaryKey: ['id'])
+                  .eq('user_id', userId!),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -49,7 +52,7 @@ class _MyProjectsTabState extends State<MyProjectsTab> {
                 if (snapshot.hasError) {
                   return Center(
                     child: Text(
-                      'Ошибка загрузки: ${snapshot.error}',
+                      'Ошибка: ${snapshot.error}',
                       textAlign: TextAlign.center,
                     ),
                   );
@@ -57,7 +60,7 @@ class _MyProjectsTabState extends State<MyProjectsTab> {
 
                 final participants = snapshot.data ?? [];
 
-                // Фильтруем по роли client на клиенте
+                // Фильтруем только заказчиков
                 final clientParticipants = participants.where((p) {
                   return p['role'] == ParticipantRole.client.name;
                 }).toList();
@@ -71,10 +74,7 @@ class _MyProjectsTabState extends State<MyProjectsTab> {
                         SizedBox(height: 16),
                         Text(
                           'Нет проектов',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                         ),
                         SizedBox(height: 8),
                         Text(
@@ -87,38 +87,34 @@ class _MyProjectsTabState extends State<MyProjectsTab> {
                   );
                 }
 
+                // Собираем уникальные project_id
                 final projectIds = clientParticipants
                     .map((p) => p['project_id'] as String)
                     .toSet()
                     .toList();
 
+                // Подписываемся на проекты
                 return StreamBuilder<List<Map<String, dynamic>>>(
                   stream: _supabase
                       .from('projects')
                       .stream(primaryKey: ['id'])
                       .inFilter('id', projectIds),
                   builder: (context, projectSnapshot) {
-                    if (projectSnapshot.connectionState ==
-                        ConnectionState.waiting) {
+                    if (projectSnapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
                     if (projectSnapshot.hasError) {
-                      return Center(
-                        child: Text(
-                          'Ошибка проектов: ${projectSnapshot.error}',
-                        ),
-                      );
+                      return Center(child: Text('Ошибка: ${projectSnapshot.error}'));
                     }
 
-                    var projects = projectSnapshot.data ?? [];
+                    List<Map<String, dynamic>> projects = projectSnapshot.data ?? [];
 
                     // Поиск по названию
                     if (_searchQuery.isNotEmpty) {
+                      final query = _searchQuery.toLowerCase();
                       projects = projects.where((p) {
-                        return (p['name'] as String).toLowerCase().contains(
-                          _searchQuery.toLowerCase(),
-                        );
+                        return (p['name'] as String).toLowerCase().contains(query);
                       }).toList();
                     }
 
@@ -126,14 +122,10 @@ class _MyProjectsTabState extends State<MyProjectsTab> {
                       return const Center(child: Text('Проекты не найдены'));
                     }
 
-                    // Сортировка по дате создания (новые сверху)
+                    // Сортировка по created_at (новые сверху)
                     projects.sort((a, b) {
-                      final dateA =
-                          DateTime.tryParse(a['created_at'] ?? '') ??
-                          DateTime(1970);
-                      final dateB =
-                          DateTime.tryParse(b['created_at'] ?? '') ??
-                          DateTime(1970);
+                      final dateA = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(1970);
+                      final dateB = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(1970);
                       return dateB.compareTo(dateA);
                     });
 
@@ -159,83 +151,53 @@ class _MyProjectsTabState extends State<MyProjectsTab> {
                             final progress = progressSnapshot.data ?? 0.0;
 
                             return Card(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
+                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               elevation: 4,
                               child: ListTile(
                                 leading: CircleAvatar(
                                   backgroundColor: _getStatusColor(status),
                                   child: Text(
                                     status.name[0].toUpperCase(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                                 title: Text(
                                   name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                  ),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                                 ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    if (description != null &&
-                                        description.isNotEmpty)
-                                      Text(
-                                        description,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                    if (description != null && description.isNotEmpty)
+                                      Text(description, maxLines: 2, overflow: TextOverflow.ellipsis),
                                     const SizedBox(height: 8),
                                     Row(
                                       children: [
-                                        Icon(
-                                          Icons.flag,
-                                          size: 16,
-                                          color: _getStatusColor(status),
-                                        ),
+                                        Icon(Icons.flag, size: 16, color: _getStatusColor(status)),
                                         const SizedBox(width: 4),
-                                        Text(
-                                          'Статус: ${_projectStatusName(status)}',
-                                        ),
+                                        Text('Статус: ${_projectStatusName(status)}'),
                                       ],
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
                                       children: [
-                                        const Icon(
-                                          Icons.calendar_today,
-                                          size: 16,
-                                        ),
+                                        const Icon(Icons.calendar_today, size: 16),
                                         const SizedBox(width: 4),
-                                        Text(
-                                          '${startDate ?? '?'} — ${endDate ?? '?'}',
-                                        ),
+                                        Text('${startDate ?? '?'} — ${endDate ?? '?'}'),
                                       ],
                                     ),
                                     const SizedBox(height: 8),
                                     Row(
                                       children: [
-                                        Text(
-                                          'Прогресс: ${(progress * 100).toInt()}%',
-                                        ),
+                                        Text('Прогресс: ${(progress * 100).toInt()}%'),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: LinearProgressIndicator(
                                             value: progress,
                                             backgroundColor: Colors.grey[300],
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  progress >= 1.0
-                                                      ? Colors.green
-                                                      : Colors.blue,
-                                                ),
+                                            valueColor: AlwaysStoppedAnimation<Color>(
+                                              progress >= 1.0 ? Colors.green : Colors.blue,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -245,9 +207,7 @@ class _MyProjectsTabState extends State<MyProjectsTab> {
                                 isThreeLine: true,
                                 onTap: () {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Открыть проект: $name'),
-                                    ),
+                                    SnackBar(content: Text('Открыть проект: $name')),
                                   );
                                 },
                               ),
@@ -268,35 +228,34 @@ class _MyProjectsTabState extends State<MyProjectsTab> {
 
   Future<double> _calculateProjectProgress(String projectId) async {
     try {
-      final stageIds = await _supabase
+      final stages = await _supabase
           .from('stages')
           .select('id')
-          .eq('project_id', projectId)
-          .then((data) => data.map((s) => s['id'] as String).toList());
+          .eq('project_id', projectId);
 
-      if (stageIds.isEmpty) return 0.0;
+      if (stages.isEmpty) return 0.0;
 
-      final worksData = await _supabase
+      final stageIds = stages.map((s) => s['id'] as String).toList();
+
+      final works = await _supabase
           .from('works')
           .select('status')
           .inFilter('stage_id', stageIds);
 
-      if (worksData.isEmpty) return 0.0;
+      if (works.isEmpty) return 0.0;
 
-      final total = worksData.length;
-      final done = worksData
-          .where((w) => w['status'] == WorkStatus.done.name)
-          .length;
+      final total = works.length;
+      final done = works.where((w) => w['status'] == WorkStatus.done.name).length;
 
       return done / total;
     } catch (e) {
-      debugPrint('Ошибка прогресса: $e');
+      debugPrint('Ошибка расчёта прогресса: $e');
       return 0.0;
     }
   }
 
   Color _getStatusColor(ProjectStatus status) {
-    return switch (status) {
+      return switch (status) {
       ProjectStatus.active => Colors.green,
       ProjectStatus.paused => Colors.orange,
       ProjectStatus.archived => Colors.grey,

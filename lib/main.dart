@@ -1,3 +1,4 @@
+import 'package:development/screens/settings/app_colors.dart';
 import 'package:development/services/auth_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -39,16 +40,7 @@ class MyApp extends StatelessWidget {
       useInheritedMediaQuery: true, // Требуется для Device Preview
       locale: DevicePreview.locale(context), // Для тестирования локалей
       builder: DevicePreview.appBuilder, // Важно! Обязательно для правильной работы
-      theme: ThemeData(
-        useMaterial3: true,
-        primarySwatch: Colors.blue,
-        brightness: Brightness.light,
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        primarySwatch: Colors.blue,
-        brightness: Brightness.dark,
-      ),
+      theme: AppColors.lightTheme,
       home: const AuthWrapper(),
     );
   }
