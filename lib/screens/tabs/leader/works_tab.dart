@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '/models/enums.dart';
+import '/widgets/leader/works_tab/filter_controls.dart';
+import '/widgets/leader/works_tab/project_dropdown.dart';
+import '/widgets/leader/works_tab/stage_dropdown.dart';
+import '/widgets/leader/works_tab/work_item.dart';
 
 class WorksTab extends StatefulWidget {
   const WorksTab({super.key});
@@ -9,7 +13,8 @@ class WorksTab extends StatefulWidget {
   State<WorksTab> createState() => _WorksTabState();
 }
 
-class _WorksTabState extends State<WorksTab> {
+class _WorksTabState extends State<WorksTab>
+    with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
   final userId = Supabase.instance.client.auth.currentUser?.id;
 
@@ -21,10 +26,33 @@ class _WorksTabState extends State<WorksTab> {
   bool _showOverdueOnly = false;
   String _searchQuery = '';
 
+  late AnimationController _fabAnimationController;
+  late Animation<double> _fabScaleAnimation;
+
   @override
   void initState() {
     super.initState();
     _loadProjects();
+
+    _fabAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _fabScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _fabAnimationController,
+        curve: Curves.elasticOut,
+      ),
+    );
+
+    _fabAnimationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fabAnimationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProjects() async {
@@ -68,13 +96,274 @@ class _WorksTabState extends State<WorksTab> {
     }
   }
 
-  Future<void> _createWork() async {
-    if (_selectedStage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Выберите этап для создания работы')),
-      );
-      return;
-    }
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final bool canCreateWork = _selectedStage != null;
+
+    return Scaffold(
+      extendBody: true,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.primary.withOpacity(0.05),
+              colorScheme.surface,
+            ],
+          ),
+        ),
+        child: Column(
+          children: [
+            // Выбор проекта и этапа
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ProjectDropdown(
+                      projects: _projects,
+                      selectedProject: _selectedProject,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedProject = value;
+                          _selectedStage = null;
+                          _stages.clear();
+                        });
+                        if (value != null) _loadStages();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: StageDropdown(
+                      stages: _stages,
+                      selectedStage: _selectedStage,
+                      onChanged: (value) =>
+                          setState(() => _selectedStage = value),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Фильтры
+            FilterControls(
+              searchQuery: _searchQuery,
+              onSearchChanged: (value) => setState(() => _searchQuery = value),
+              selectedStatus: _selectedStatusFilter,
+              onStatusChanged: (value) =>
+                  setState(() => _selectedStatusFilter = value),
+              showOverdueOnly: _showOverdueOnly,
+              onOverdueToggled: () =>
+                  setState(() => _showOverdueOnly = !_showOverdueOnly),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Список работ
+            Expanded(
+              child: _selectedStage == null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.assignment_outlined,
+                            size: 80,
+                            color: colorScheme.primary.withOpacity(0.4),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Выберите этап',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.6),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Чтобы увидеть список работ',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: _supabase
+                          .from('works')
+                          .stream(primaryKey: ['id'])
+                          .eq('stage_id', _selectedStage!['id'])
+                          .order('created_at', ascending: false),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text(
+                              'Ошибка загрузки работ',
+                              style: TextStyle(color: colorScheme.error),
+                            ),
+                          );
+                        }
+
+                        final works = snapshot.data ?? [];
+
+                        final now = DateTime.now();
+
+                        final filtered = works.where((w) {
+                          final nameMatch = (w['name'] as String)
+                              .toLowerCase()
+                              .contains(_searchQuery.toLowerCase());
+                          final statusMatch =
+                              _selectedStatusFilter == null ||
+                              w['status'] == _selectedStatusFilter?.name;
+                          final overdueMatch =
+                              !_showOverdueOnly ||
+                              (w['end_date'] != null &&
+                                  DateTime.tryParse(
+                                        w['end_date'],
+                                      )?.isBefore(now) ==
+                                      true &&
+                                  w['status'] != WorkStatus.done.name);
+
+                          return nameMatch && statusMatch && overdueMatch;
+                        }).toList();
+
+                        if (filtered.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.assignment_turned_in_outlined,
+                                  size: 80,
+                                  color: colorScheme.primary.withOpacity(0.4),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Нет работ',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    color: colorScheme.onSurface.withOpacity(
+                                      0.6,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _searchQuery.isNotEmpty
+                                      ? 'По вашему запросу ничего не найдено'
+                                      : 'На этом этапе пока нет задач',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurface.withOpacity(
+                                      0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final work = filtered[index];
+
+                            return AnimatedSlide(
+                              duration: Duration(
+                                milliseconds: 300 + index * 50,
+                              ),
+                              offset: Offset(0, index * 0.05),
+                              curve: Curves.easeOutCubic,
+                              child: WorkItem(
+                                work: work,
+                                onStatusChanged: (newStatus) async {
+                                  await _supabase
+                                      .from('works')
+                                      .update({'status': newStatus})
+                                      .eq('id', work['id']);
+                                },
+                                onDelete: () async {
+                                  await _supabase
+                                      .from('works')
+                                      .delete()
+                                      .eq('id', work['id']);
+                                },
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80), // Поднимаем над таббаром
+        child: ScaleTransition(
+          scale: _fabScaleAnimation,
+          child: FloatingActionButton.extended(
+            onPressed: canCreateWork
+                ? () async {
+                    await _createWork(context);
+                    if (mounted) {
+                      _fabAnimationController.reverse().then((_) {
+                        _fabAnimationController.forward();
+                      });
+                    }
+                  }
+                : null,
+            backgroundColor: canCreateWork
+                ? colorScheme.primary
+                : colorScheme.surface.withOpacity(0.6),
+            foregroundColor: canCreateWork
+                ? Colors.white
+                : colorScheme.onSurface.withOpacity(0.4),
+            elevation: canCreateWork ? 12 : 4,
+            tooltip: canCreateWork ? 'Создать новую работу' : 'Выберите этап',
+            label: const Text(
+              'Новая работа',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            icon: const Icon(Icons.add_task, size: 28),
+          ),
+        ),
+      ),
+      floatingActionButtonLocation:
+          FloatingActionButtonLocation.endFloat, // Правый нижний угол
+    );
+  }
+
+  Future<void> _createWork(BuildContext context) async {
+    if (_selectedStage == null) return;
 
     final nameController = TextEditingController();
     final descController = TextEditingController();
@@ -82,352 +371,294 @@ class _WorksTabState extends State<WorksTab> {
     DateTime? endDate;
     Map<String, dynamic>? assignedUser;
 
-    // Получаем список работников проекта
     final participants = await _supabase
         .from('project_participants')
         .select('user_id, users(full_name, email)')
         .eq('project_id', _selectedProject!['id'])
         .eq('role', ParticipantRole.worker.name);
 
-    final workerOptions = participants.map((p) => p['users'] as Map<String, dynamic>).toList();
+    final workerOptions = participants
+        .map((p) => p['users'] as Map<String, dynamic>)
+        .toList();
 
-    await showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Новая работа'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Название работы'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: descController,
-                  decoration: const InputDecoration(labelText: 'Описание'),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  title: Text(startDate == null ? 'Дата начала' : startDate!.toString().split(' ')[0]),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) setDialogState(() => startDate = picked);
-                  },
-                ),
-                ListTile(
-                  title: Text(endDate == null ? 'Дата окончания' : endDate!.toString().split(' ')[0]),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now().add(const Duration(days: 7)),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) setDialogState(() => endDate = picked);
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButton<Map<String, dynamic>?>(
-                  hint: const Text('Назначить работнику'),
-                  value: assignedUser,
-                  isExpanded: true,
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Не назначено')),
-                    ...workerOptions.map((user) => DropdownMenuItem(
-                          value: user,
-                          child: Text(user['full_name'] ?? user['email']),
-                        )),
-                  ],
-                  onChanged: (value) => setDialogState(() => assignedUser = value),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
-            TextButton(
-              onPressed: () async {
-                if (nameController.text.trim().isEmpty) return;
-
-                try {
-                  await _supabase.from('works').insert({
-                    'stage_id': _selectedStage!['id'],
-                    'name': nameController.text.trim(),
-                    'description': descController.text.trim().isEmpty ? null : descController.text.trim(),
-                    'start_date': startDate?.toIso8601String().split('T').first,
-                    'end_date': endDate?.toIso8601String().split('T').first,
-                    'status': WorkStatus.todo.name,
-                    'assigned_to': assignedUser?['id'],
-                  });
-
-                  if (mounted) Navigator.pop(context);
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Ошибка создания работы: $e')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Создать'),
-            ),
-          ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.9,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createWork,
-        label: const Text('Новая работа'),
-        icon: const Icon(Icons.add_task),
-      ),
-      body: Column(
-        children: [
-          // Выбор проекта и этапа
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DropdownButton<Map<String, dynamic>?>(
-                    hint: const Text('Проект'),
-                    value: _selectedProject,
-                    isExpanded: true,
-                    items: _projects.map((p) {
-                      return DropdownMenuItem(value: p, child: Text(p['name']));
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedProject = value;
-                        _selectedStage = null;
-                        _stages.clear();
-                      });
-                      if (value != null) _loadStages();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButton<Map<String, dynamic>?>(
-                    hint: const Text('Этап'),
-                    value: _selectedStage,
-                    isExpanded: true,
-                    items: _stages.map((s) {
-                      return DropdownMenuItem(value: s, child: Text(s['name']));
-                    }).toList(),
-                    onChanged: (value) => setState(() => _selectedStage = value),
-                  ),
-                ),
-              ],
+        child: StatefulBuilder(
+          builder: (context, setDialogState) => Padding(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 24,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
             ),
-          ),
-
-          // Фильтры
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: TextField(
-                    onChanged: (value) => setState(() => _searchQuery = value),
-                    decoration: const InputDecoration(
-                      labelText: 'Поиск по названию',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                // Ручка для свайпа вниз
+                Center(
+                  child: Container(
+                    width: 60,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(3),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                DropdownButton<WorkStatus?>(
-                  value: _selectedStatusFilter,
-                  hint: const Text('Статус'),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Все')),
-                    ...WorkStatus.values.map((s) => DropdownMenuItem(value: s, child: Text(_workStatusName(s)))),
-                  ],
-                  onChanged: (value) => setState(() => _selectedStatusFilter = value),
+                const SizedBox(height: 24),
+
+                Text(
+                  'Новая работа',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
-                IconButton(
-                  icon: Icon(_showOverdueOnly ? Icons.timer_off : Icons.timer),
-                  tooltip: 'Просроченные',
-                  color: _showOverdueOnly ? Colors.red : null,
-                  onPressed: () => setState(() => _showOverdueOnly = !_showOverdueOnly),
+                const SizedBox(height: 24),
+
+                // Название
+                TextField(
+                  controller: nameController,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: 'Название работы *',
+                    prefixIcon: const Icon(Icons.title),
+                    filled: true,
+                    fillColor: Theme.of(
+                      context,
+                    ).colorScheme.surface.withOpacity(0.8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Описание
+                TextField(
+                  controller: descController,
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Описание (опционально)',
+                    prefixIcon: const Icon(Icons.description_outlined),
+                    filled: true,
+                    fillColor: Theme.of(
+                      context,
+                    ).colorScheme.surface.withOpacity(0.8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Даты
+                Row(
+                  children: [
+                    Expanded(
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
+                        ),
+                        leading: const Icon(Icons.calendar_today),
+                        title: Text(
+                          startDate == null
+                              ? 'Дата начала'
+                              : startDate!.toString().split(' ')[0],
+                        ),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime(2030),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: Theme.of(context).colorScheme
+                                      .copyWith(
+                                        primary: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (picked != null)
+                            setDialogState(() => startDate = picked);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
+                        ),
+                        leading: const Icon(Icons.calendar_today_outlined),
+                        title: Text(
+                          endDate == null
+                              ? 'Дата окончания'
+                              : endDate!.toString().split(' ')[0],
+                        ),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now().add(
+                              const Duration(days: 7),
+                            ),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime(2030),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: Theme.of(context).colorScheme
+                                      .copyWith(
+                                        primary: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (picked != null)
+                            setDialogState(() => endDate = picked);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Назначить работнику
+                DropdownButtonFormField<Map<String, dynamic>?>(
+                  value: assignedUser,
+                  hint: const Text('Назначить работнику'),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.person_add),
+                    filled: true,
+                    fillColor: Theme.of(
+                      context,
+                    ).colorScheme.surface.withOpacity(0.8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('Не назначено'),
+                    ),
+                    ...workerOptions.map(
+                      (user) => DropdownMenuItem(
+                        value: user,
+                        child: Text(user['full_name'] ?? user['email']),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setDialogState(() => assignedUser = value),
+                ),
+                const SizedBox(height: 32),
+
+                // Кнопка Создать
+                SizedBox(
+                  width: double.infinity,
+                  height: 60,
+                  child: ElevatedButton(
+                    onPressed: nameController.text.trim().isEmpty
+                        ? null
+                        : () async {
+                            try {
+                              await _supabase.from('works').insert({
+                                'stage_id': _selectedStage!['id'],
+                                'name': nameController.text.trim(),
+                                'description':
+                                    descController.text.trim().isEmpty
+                                    ? null
+                                    : descController.text.trim(),
+                                'start_date': startDate
+                                    ?.toIso8601String()
+                                    .split('T')
+                                    .first,
+                                'end_date': endDate
+                                    ?.toIso8601String()
+                                    .split('T')
+                                    .first,
+                                'status': WorkStatus.todo.name,
+                                'assigned_to': assignedUser?['id'],
+                              });
+
+                              if (mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Работа успешно создана!'),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Ошибка: $e')),
+                                );
+                              }
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      elevation: 10,
+                    ),
+                    child: const Text(
+                      'Создать работу',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Список работ
-          Expanded(
-            child: _selectedStage == null
-                ? const Center(child: Text('Выберите этап для просмотра работ'))
-                : StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: _supabase
-                        .from('works')
-                        .stream(primaryKey: ['id'])
-                        .eq('stage_id', _selectedStage!['id'])
-                        .order('created_at', ascending: false),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      if (snapshot.hasError) {
-                        return Center(child: Text('Ошибка: ${snapshot.error}'));
-                      }
-
-                      final works = snapshot.data ?? [];
-
-                      final now = DateTime.now();
-
-                      final filtered = works.where((w) {
-                        final nameMatch = (w['name'] as String).toLowerCase().contains(_searchQuery.toLowerCase());
-                        final statusMatch = _selectedStatusFilter == null || w['status'] == _selectedStatusFilter?.name;
-                        final overdueMatch = !_showOverdueOnly ||
-                            (w['end_date'] != null &&
-                                DateTime.tryParse(w['end_date'])?.isBefore(now) == true &&
-                                w['status'] != WorkStatus.done.name);
-
-                        return nameMatch && statusMatch && overdueMatch;
-                      }).toList();
-
-                      if (filtered.isEmpty) {
-                        return const Center(child: Text('Нет работ на этом этапе'));
-                      }
-
-                      return ListView.builder(
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          final work = filtered[index];
-                          final name = work['name'] as String;
-                          final description = work['description'] as String?;
-                          final statusStr = work['status'] as String;
-                          final start = work['start_date'] as String?;
-                          final end = work['end_date'] as String?;
-                          final assignedId = work['assigned_to'] as String?;
-
-                          final status = WorkStatus.values.firstWhere(
-                            (e) => e.name == statusStr,
-                            orElse: () => WorkStatus.todo,
-                          );
-
-                          final isOverdue = end != null &&
-                              DateTime.tryParse(end)?.isBefore(now) == true &&
-                              status != WorkStatus.done;
-
-                          return Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            color: isOverdue ? Colors.red.shade50 : null,
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: _getWorkStatusColor(status),
-                                child: Text(status.name[0].toUpperCase()),
-                              ),
-                              title: Text(
-                                name,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  decoration: isOverdue ? TextDecoration.lineThrough : null,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (description != null && description.isNotEmpty)
-                                    Text(description, maxLines: 2, overflow: TextOverflow.ellipsis),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Статус: ${_workStatusName(status)}',
-                                    style: TextStyle(color: _getWorkStatusColor(status)),
-                                  ),
-                                  if (assignedId != null)
-                                    FutureBuilder(
-                                      future: _supabase
-                                          .from('users')
-                                          .select('full_name')
-                                          .eq('id', assignedId)
-                                          .single(),
-                                      builder: (context, userSnap) {
-                                        final userName = userSnap.data?['full_name'] ?? 'Работник';
-                                        return Text('Назначено: $userName');
-                                      },
-                                    ),
-                                  if (start != null || end != null)
-                                    Text('${start ?? '?'} — ${end ?? '?'}'),
-                                ],
-                              ),
-                              trailing: PopupMenuButton<String>(
-                                onSelected: (value) async {
-                                  if (value == 'edit') {
-                                    // Редактирование (заглушка)
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Редактировать работу: $name')),
-                                    );
-                                  } else if (value.startsWith('status_')) {
-                                    final newStatus = value.replaceFirst('status_', '');
-                                    await _supabase
-                                        .from('works')
-                                        .update({'status': newStatus})
-                                        .eq('id', work['id']);
-                                  } else if (value == 'delete') {
-                                    await _supabase.from('works').delete().eq('id', work['id']);
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(value: 'edit', child: Text('Редактировать')),
-                                  ...WorkStatus.values.map((s) => PopupMenuItem(
-                                        value: 'status_${s.name}',
-                                        child: Text('Статус: ${_workStatusName(s)}'),
-                                      )),
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text('Удалить', style: TextStyle(color: Colors.red)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-          ),
-        ],
+        ),
       ),
     );
-  }
-
-  Color _getWorkStatusColor(WorkStatus status) {
-    return switch (status) {
-      WorkStatus.todo => Colors.grey,
-      WorkStatus.in_progress => Colors.blue,
-      WorkStatus.done => Colors.green,
-      WorkStatus.delayed => Colors.red,
-    };
-  }
-
-  String _workStatusName(WorkStatus status) {
-    return switch (status) {
-      WorkStatus.todo => 'К выполнению',
-      WorkStatus.in_progress => 'В работе',
-      WorkStatus.done => 'Выполнено',
-      WorkStatus.delayed => 'Просрочено',
-    };
   }
 }

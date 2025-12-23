@@ -1,6 +1,9 @@
+import 'package:development/widgets/leader/stages_tab/create_stage_dialog.dart';
+import 'package:development/widgets/leader/stages_tab/stage_card.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '/models/enums.dart';
+import '../../../widgets/leader/stages_tab/filter_controls.dart';
+import '../../../widgets/leader/stages_tab/project_dropdown.dart';
 
 class StagesTab extends StatefulWidget {
   const StagesTab({super.key});
@@ -9,25 +12,47 @@ class StagesTab extends StatefulWidget {
   State<StagesTab> createState() => _StagesTabState();
 }
 
-class _StagesTabState extends State<StagesTab> {
+class _StagesTabState extends State<StagesTab> with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
-  final userId = Supabase.instance.client.auth.currentUser?.id;
+  String? get userId => _supabase.auth.currentUser?.id;
 
   List<Map<String, dynamic>> _projects = [];
   Map<String, dynamic>? _selectedProject;
   String _searchQuery = '';
 
+  late AnimationController _fabAnimationController;
+  late Animation<double> _fabScaleAnimation;
+
   @override
   void initState() {
     super.initState();
     _loadProjects();
+
+    _fabAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _fabScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fabAnimationController, curve: Curves.elasticOut),
+    );
+
+    _fabAnimationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fabAnimationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProjects() async {
+    if (userId == null) return;
+
     try {
       final data = await _supabase
           .from('projects')
-          .select('id, name, description, status')
+          .select('id, name')
           .eq('created_by', userId!)
           .order('created_at', ascending: false);
 
@@ -42,380 +67,146 @@ class _StagesTabState extends State<StagesTab> {
     }
   }
 
-  Future<void> _createStage() async {
-    if (_selectedProject == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Сначала выберите проект')),
-      );
-      return;
-    }
-
-    final nameController = TextEditingController();
-    final descController = TextEditingController();
-    DateTime? startDate;
-    DateTime? endDate;
-    List<Map<String, dynamic>> materialResources = [];
-    List<Map<String, dynamic>> nonMaterialResources = [];
-
-    await showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Новый этап'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Название этапа'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: descController,
-                  decoration: const InputDecoration(labelText: 'Описание'),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  title: Text(startDate == null ? 'Дата начала' : startDate!.toString().split(' ')[0]),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) setDialogState(() => startDate = picked);
-                  },
-                ),
-                ListTile(
-                  title: Text(endDate == null ? 'Дата окончания' : endDate!.toString().split(' ')[0]),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now().add(const Duration(days: 30)),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) setDialogState(() => endDate = picked);
-                  },
-                ),
-                const SizedBox(height: 16),
-                const Text('Материальные ресурсы', style: TextStyle(fontWeight: FontWeight.bold)),
-                ...materialResources.map((res) => ListTile(
-                      title: Text('${res['name']} — ${res['quantity']} ${res['unit']}'),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () => setDialogState(() => materialResources.remove(res)),
-                      ),
-                    )),
-                TextButton(
-                  onPressed: () => _addResourceDialog(setDialogState, materialResources, true),
-                  child: const Text('+ Добавить материал'),
-                ),
-                const SizedBox(height: 16),
-                const Text('Нематериальные ресурсы', style: TextStyle(fontWeight: FontWeight.bold)),
-                ...nonMaterialResources.map((res) => ListTile(
-                      title: Text(res['name']),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () => setDialogState(() => nonMaterialResources.remove(res)),
-                      ),
-                    )),
-                TextButton(
-                  onPressed: () => _addResourceDialog(setDialogState, nonMaterialResources, false),
-                  child: const Text('+ Добавить ресурс'),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
-            TextButton(
-              onPressed: () async {
-                if (nameController.text.trim().isEmpty) return;
-
-                try {
-                  await _supabase.from('stages').insert({
-                    'project_id': _selectedProject!['id'],
-                    'name': nameController.text.trim(),
-                    'description': descController.text.trim().isEmpty ? null : descController.text.trim(),
-                    'start_date': startDate?.toIso8601String().split('T').first,
-                    'end_date': endDate?.toIso8601String().split('T').first,
-                    'status': StageStatus.planned.name,
-                    'material_resources': materialResources.isEmpty ? null : materialResources,
-                    'non_material_resources': nonMaterialResources.isEmpty ? null : nonMaterialResources,
-                  });
-
-                  if (mounted) Navigator.pop(context);
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Ошибка создания этапа: $e')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Создать'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _addResourceDialog(
-    StateSetter setDialogState,
-    List<Map<String, dynamic>> list,
-    bool isMaterial,
-  ) async {
-    final nameController = TextEditingController();
-    final quantityController = TextEditingController();
-    final unitController = TextEditingController();
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(isMaterial ? 'Материальный ресурс' : 'Нематериальный ресурс'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Название'),
-            ),
-            if (isMaterial) ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: quantityController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Количество'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: unitController,
-                decoration: const InputDecoration(labelText: 'Единица (шт, м³ и т.д.)'),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
-          TextButton(
-            onPressed: () {
-              if (nameController.text.trim().isEmpty) return;
-
-              final resource = {
-                'name': nameController.text.trim(),
-                if (isMaterial && quantityController.text.isNotEmpty)
-                  'quantity': double.tryParse(quantityController.text) ?? 1,
-                if (isMaterial && unitController.text.isNotEmpty)
-                  'unit': unitController.text.trim(),
-              };
-
-              setDialogState(() => list.add(resource));
-              Navigator.pop(context);
-            },
-            child: const Text('Добавить'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createStage,
-        label: const Text('Новый этап'),
-        icon: const Icon(Icons.add),
-      ),
-      body: Column(
-        children: [
-          // Выбор проекта
-          if (_projects.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: DropdownButton<Map<String, dynamic>>(
-                isExpanded: true,
-                hint: const Text('Выберите проект'),
-                value: _selectedProject,
-                items: _projects.map((project) {
-                  return DropdownMenuItem(
-                    value: project,
-                    child: Text(project['name']),
-                  );
-                }).toList(),
+      extendBody: true,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.primary.withOpacity(0.05),
+              colorScheme.surface,
+            ],
+          ),
+        ),
+        child: Column(
+          children: [
+            // Выбор проекта — теперь с красивым ProjectDropdown
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ProjectDropdown(
+                projects: _projects,
+                selectedProject: _selectedProject,
                 onChanged: (value) => setState(() => _selectedProject = value),
               ),
             ),
 
-          // Поиск по этапам
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: TextField(
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: const InputDecoration(
-                labelText: 'Поиск по названию этапа',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
+            // Поиск
+            FilterControls(
+              searchQuery: _searchQuery,
+              onSearchChanged: (value) => setState(() => _searchQuery = value),
             ),
-          ),
-          const SizedBox(height: 16),
 
-          // Список этапов
-          Expanded(
-            child: _selectedProject == null
-                ? const Center(child: Text('Выберите проект для просмотра этапов'))
-                : StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: _supabase
-                        .from('stages')
-                        .stream(primaryKey: ['id'])
-                        .eq('project_id', _selectedProject!['id'])
-                        .order('created_at', ascending: true),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
+            const SizedBox(height: 12),
 
-                      if (snapshot.hasError) {
-                        return Center(child: Text('Ошибка: ${snapshot.error}'));
-                      }
+            // Список этапов
+            Expanded(
+              child: _selectedProject == null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.view_week_outlined, size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                          const SizedBox(height: 16),
+                          Text('Выберите проект', style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurface.withOpacity(0.6))),
+                          const SizedBox(height: 8),
+                          Text('Чтобы увидеть этапы', style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.5))),
+                        ],
+                      ),
+                    )
+                  : StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: _supabase
+                          .from('stages')
+                          .stream(primaryKey: ['id'])
+                          .eq('project_id', _selectedProject!['id'])
+                          .order('created_at', ascending: true),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        if (snapshot.hasError) {
+                          return Center(child: Text('Ошибка: ${snapshot.error}'));
+                        }
 
-                      final stages = snapshot.data ?? [];
+                        final stages = snapshot.data ?? [];
 
-                      final filtered = stages.where((s) {
-                        return (s['name'] as String)
-                            .toLowerCase()
-                            .contains(_searchQuery.toLowerCase());
-                      }).toList();
+                        final filtered = stages.where((s) {
+                          return (s['name'] as String).toLowerCase().contains(_searchQuery.toLowerCase());
+                        }).toList();
 
-                      if (filtered.isEmpty) {
-                        return const Center(
-                          child: Text('Нет этапов в этом проекте'),
-                        );
-                      }
-
-                      return ListView.builder(
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          final stage = filtered[index];
-                          final name = stage['name'] as String;
-                          final description = stage['description'] as String?;
-                          final statusStr = stage['status'] as String;
-                          final start = stage['start_date'] as String?;
-                          final end = stage['end_date'] as String?;
-                          final material = stage['material_resources'] as List<dynamic>?;
-                          final nonMaterial = stage['non_material_resources'] as List<dynamic>?;
-
-                          final status = StageStatus.values.firstWhere(
-                            (e) => e.name == statusStr,
-                            orElse: () => StageStatus.planned,
-                          );
-
-                          return Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: ExpansionTile(
-                              leading: CircleAvatar(
-                                backgroundColor: _getStageStatusColor(status),
-                                child: Text(status.name[0].toUpperCase()),
-                              ),
-                              title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text(
-                                '${start ?? '?'} — ${end ?? '?'}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
+                        if (filtered.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                if (description != null && description.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    child: Text(description),
-                                  ),
+                                Icon(Icons.view_week, size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                                const SizedBox(height: 16),
+                                Text('Нет этапов', style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurface.withOpacity(0.6))),
                                 const SizedBox(height: 8),
-                                if (material != null && material.isNotEmpty)
-                                  _buildResourcesList('Материальные ресурсы', material),
-                                if (nonMaterial != null && nonMaterial.isNotEmpty)
-                                  _buildResourcesList('Нематериальные ресурсы', nonMaterial),
-                                const SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    TextButton(
-                                      onPressed: () => _editStage(stage),
-                                      child: const Text('Редактировать'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => _changeStageStatus(stage),
-                                      child: Text(status == StageStatus.paused ? 'Возобновить' : 'Приостановить'),
-                                    ),
-                                  ],
-                                ),
+                                Text('Нажмите "+" для создания первого этапа', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.5))),
                               ],
                             ),
                           );
-                        },
-                      );
-                    },
-                  ),
+                        }
+
+                        return ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            return AnimatedSlide(
+                              duration: Duration(milliseconds: 300 + index * 50),
+                              offset: Offset(0, index * 0.05),
+                              curve: Curves.easeOutCubic,
+                              child: StageCard(stage: filtered[index]),
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+
+      // FAB
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80),
+        child: ScaleTransition(
+          scale: _fabScaleAnimation,
+          child: FloatingActionButton.extended(
+            onPressed: _selectedProject == null
+                ? null
+                : () => CreateStageDialog.show(context, projectId: _selectedProject!['id']),
+            backgroundColor: _selectedProject == null
+                ? colorScheme.surface.withOpacity(0.6)
+                : colorScheme.primary,
+            foregroundColor: _selectedProject == null
+                ? colorScheme.onSurface.withOpacity(0.4)
+                : Colors.white,
+            elevation: 12,
+            label: const Text('Новый этап', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            icon: const Icon(Icons.add, size: 28),
           ),
-        ],
+        ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
-  }
-
-  Widget _buildResourcesList(String title, List<dynamic> resources) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-          ...resources.map((res) => Padding(
-                padding: const EdgeInsets.only(left: 16, top: 4),
-                child: Text(
-                  '• ${res['name']} ${res['quantity'] != null ? "— ${res['quantity']} ${res['unit'] ?? ''}" : ""}',
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-
-  Color _getStageStatusColor(StageStatus status) {
-    return switch (status) {
-      StageStatus.planned => Colors.grey,
-      StageStatus.in_progress => Colors.blue,
-      StageStatus.paused => Colors.orange,
-      StageStatus.completed => Colors.green,
-    };
-  }
-
-  // Заглушки для редактирования и изменения статуса (можно реализовать позже)
-  void _editStage(Map<String, dynamic> stage) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Редактирование этапа: ${stage['name']}')),
-    );
-  }
-
-  void _changeStageStatus(Map<String, dynamic> stage) async {
-    final newStatus = (stage['status'] == StageStatus.paused.name)
-        ? StageStatus.in_progress.name
-        : StageStatus.paused.name;
-
-    try {
-      await _supabase
-          .from('stages')
-          .update({'status': newStatus})
-          .eq('id', stage['id']);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка изменения статуса: $e')),
-      );
-    }
   }
 }
