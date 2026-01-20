@@ -13,7 +13,7 @@ class EditWorkDialog {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
 
-    final isEdit = true; // всегда редактируем существующую работу
+// всегда редактируем существующую работу
 
     final nameController = TextEditingController(text: work['name'] as String);
     final descController = TextEditingController(text: work['description'] as String? ?? '');

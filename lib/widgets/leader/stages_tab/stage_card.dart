@@ -15,7 +15,6 @@ class StagesTab extends StatefulWidget {
 class _StagesTabState extends State<StagesTab> {
   List<Map<String, dynamic>> _projects = [];
   Map<String, dynamic>? _selectedProject;
-  String _searchQuery = '';
 
   @override
   void initState() {
@@ -102,7 +101,6 @@ class StageCard extends StatefulWidget {
 }
 
 class _StageCardState extends State<StageCard> {
-  bool _isLoading = false;
   List<Map<String, dynamic>> _documents = [];
   List<Map<String, dynamic>> _comments = [];
 

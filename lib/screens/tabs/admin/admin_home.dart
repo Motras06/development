@@ -1,94 +1,127 @@
-import 'package:development/screens/tabs/admin/all_projects_tab.dart';
-import 'package:development/screens/tabs/admin/monitoring_tab.dart';
-import 'package:development/screens/tabs/admin/settings_tab.dart';
-import 'package:development/screens/tabs/admin/users_tab.dart';
+// lib/screens/admin/admin_home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '/screens/auth/login_screen.dart';
+import 'database_explorer.dart';
 
-class AdminHome extends StatefulWidget {
-  const AdminHome({super.key});
+class AdminHomeScreen extends StatefulWidget {
+  const AdminHomeScreen({super.key});
 
   @override
-  State<AdminHome> createState() => _AdminHomeState();
+  State<AdminHomeScreen> createState() => _AdminHomeScreenState();
 }
 
-class _AdminHomeState extends State<AdminHome> {
+class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _selectedIndex = 0;
 
-  // Список вкладок для администратора
-  static final List<Widget> _pages = <Widget>[
-    const UsersTab(),
-    const AllProjectsTab(),
-    const MonitoringTab(),
-    const SettingsTab(),
+  final List<String> _tables = [
+    'users',
+    'projects',
+    'stages',
+    'works',
+    'project_participants',
+    'messages',
+    'comments',
+    'technical_documents',
   ];
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
+  Future<bool> _isAdmin() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return false;
 
-  // Функция выхода из аккаунта
-  Future<void> _signOut() async {
-  try {
-    await Supabase.instance.client.auth.signOut();
-  } catch (e) {
-    debugPrint('Ошибка при выходе: $e');
-  }
+    final data = await Supabase.instance.client
+        .from('users')
+        .select('is_admin')
+        .eq('id', userId)
+        .maybeSingle();
 
-  if (mounted) {
-    // Полная очистка навигации и переход на LoginScreen
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false, // Удаляем ВСЕ маршруты из стека
-    );
+    return data?['is_admin'] == true;
   }
-}
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    return FutureBuilder<bool>(
+      future: _isAdmin(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Администратор'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _signOut,
-            tooltip: 'Выйти',
+        if (!snapshot.data!) {
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.admin_panel_settings_rounded,
+                        size: 96, color: Theme.of(context).colorScheme.error),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Доступ запрещён',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Эта панель доступна только администраторам',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    FilledButton.tonal(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Вернуться'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Админ-панель'),
+            centerTitle: true,
           ),
-        ],
-      ),
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: theme.colorScheme.primary,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Пользователи',
+          body: DatabaseExplorer(tableName: _tables[_selectedIndex]),
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+            destinations: _tables.map((table) {
+              return NavigationDestination(
+                icon: _getIconForTable(table),
+                label: _shortTableName(table),
+              );
+            }).toList(),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.folder_shared),
-            label: 'Проекты',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.monitor_heart),
-            label: 'Мониторинг',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Настройки',
-          ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  Icon _getIconForTable(String table) {
+    return switch (table) {
+      'users' => const Icon(Icons.people_alt_rounded),
+      'projects' => const Icon(Icons.folder_rounded),
+      'stages' => const Icon(Icons.view_list_rounded),
+      'works' => const Icon(Icons.construction_rounded),
+      'project_participants' => const Icon(Icons.group_work_rounded),
+      'messages' => const Icon(Icons.message_rounded),
+      'comments' => const Icon(Icons.comment_rounded),
+      'technical_documents' => const Icon(Icons.description_rounded),
+      _ => const Icon(Icons.table_rows_rounded),
+    };
+  }
+
+  String _shortTableName(String table) {
+    return table
+        .split('_')
+        .map((e) => e[0].toUpperCase())
+        .take(2)
+        .join();
   }
 }

@@ -85,22 +85,20 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> {
       ),
       callback: (payload) {
         final newMessage = payload.newRecord;
-        if (newMessage != null) {
-          setState(() {
-            _messages.add(newMessage);
-          });
+        setState(() {
+          _messages.add(newMessage);
+        });
 
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (_scrollController.hasClients) {
-              _scrollController.animateTo(
-                _scrollController.position.maxScrollExtent,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOut,
-              );
-            }
-          });
-        }
-      },
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+            },
     );
 
     await _channel!.subscribe();

@@ -65,7 +65,7 @@ class _MainAppState extends State<MainApp> {
       }
 
       if (userData['is_admin'] == true) {
-        return const AdminHome();
+        return const AdminHomeScreen();
       }
 
       final role = userData['primary_role'] as String?;
@@ -78,7 +78,7 @@ class _MainAppState extends State<MainApp> {
         case 'client':
           return const ClientHome();
         default:
-          return const AdminHome(); // Или онбординг "Выберите роль"
+          return const AdminHomeScreen(); // Или онбординг "Выберите роль"
       }
     } catch (e) {
       debugPrint('Ошибка определения роли: $e');

@@ -19,7 +19,7 @@ class AuthRoleService {
           .single();
 
       if (userData['is_admin'] == true) {
-        return const AdminHome();
+        return const AdminHomeScreen();
       }
     } catch (e) {
       // Если нет записи в users — продолжаем

@@ -1,6 +1,7 @@
 import 'package:development/screens/tabs/client/chat_tab.dart';
 import 'package:development/screens/tabs/client/documents_tab.dart';
 import 'package:development/screens/tabs/client/my_projects_tab.dart';
+import 'package:development/screens/tabs/client/profile_tab.dart';
 import 'package:development/screens/tabs/client/progress_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -22,6 +23,7 @@ class _ClientHomeState extends State<ClientHome> {
     const ProgressTab(),
     const DocumentsTab(),
     const ChatTab(),
+    const ProfileTab()
   ];
 
   void _onItemTapped(int index) {
@@ -86,6 +88,10 @@ class _ClientHomeState extends State<ClientHome> {
           BottomNavigationBarItem(
             icon: Icon(Icons.chat_bubble),
             label: 'Чат',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Профиль',
           ),
         ],
       ),

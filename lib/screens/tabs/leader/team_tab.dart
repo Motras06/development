@@ -34,7 +34,7 @@ class _TeamTabState extends State<TeamTab> {
       final data = await _supabase
           .from('projects')
           .select('id, name, description')
-          .eq('created_by', _currentUserId!)
+          .eq('created_by', _currentUserId)
           .order('created_at', ascending: false);
 
       setState(() {
