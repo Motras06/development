@@ -6,6 +6,7 @@ import '/screens/tabs/leader/projects_tab.dart';
 import '/screens/tabs/leader/stages_tab.dart';
 import '/screens/tabs/leader/team_tab.dart';
 import '/screens/tabs/leader/works_tab.dart';
+import '/screens/tabs/leader/profile_tab.dart'; // ← добавили импорт
 
 class LeaderHome extends StatefulWidget {
   const LeaderHome({super.key});
@@ -24,6 +25,7 @@ class _LeaderHomeState extends State<LeaderHome>
     WorksTab(),
     TeamTab(),
     ChatAndDocsTab(),
+    ProfileTab(), // ← добавили
   ];
 
   late AnimationController _animationController;
@@ -81,7 +83,12 @@ class _LeaderHomeState extends State<LeaderHome>
     }
   }
 
-  BottomNavigationBarItem _buildNavItem(IconData icon, String label, int index, ColorScheme colorScheme) {
+  BottomNavigationBarItem _buildNavItem(
+    IconData icon,
+    String label,
+    int index,
+    ColorScheme colorScheme,
+  ) {
     final isSelected = _selectedIndex == index;
 
     return BottomNavigationBarItem(
@@ -93,12 +100,16 @@ class _LeaderHomeState extends State<LeaderHome>
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isSelected ? colorScheme.primary.withOpacity(0.15) : Colors.transparent,
+                color: isSelected
+                    ? colorScheme.primary.withOpacity(0.15)
+                    : Colors.transparent,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
-                color: isSelected ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.6),
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.onSurface.withOpacity(0.6),
               ),
             ),
           );
@@ -119,6 +130,7 @@ class _LeaderHomeState extends State<LeaderHome>
       'Работы',
       'Команда',
       'Чат и документы',
+      'Профиль', // ← добавили
     ];
 
     return Scaffold(
@@ -174,6 +186,12 @@ class _LeaderHomeState extends State<LeaderHome>
             _buildNavItem(Icons.assignment, 'Работы', 2, colorScheme),
             _buildNavItem(Icons.group, 'Команда', 3, colorScheme),
             _buildNavItem(Icons.chat_bubble, 'Чат', 4, colorScheme),
+            _buildNavItem(
+              Icons.person,
+              'Профиль',
+              5,
+              colorScheme,
+            ), // ← добавили
           ],
         ),
       ),

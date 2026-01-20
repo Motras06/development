@@ -5,6 +5,7 @@ import 'package:development/screens/tabs/worker/stages_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '/screens/auth/login_screen.dart';
+import 'package:development/screens/tabs/worker/profile_tab.dart';
 
 class WorkerHome extends StatefulWidget {
   const WorkerHome({super.key});
@@ -22,6 +23,7 @@ class _WorkerHomeState extends State<WorkerHome> {
     const MyTasksTab(),
     const StagesTab(),
     const ChatTab(),
+    const ProfileTab(),
   ];
 
   void _onItemTapped(int index) {
@@ -32,20 +34,20 @@ class _WorkerHomeState extends State<WorkerHome> {
 
   // Функция выхода из аккаунта
   Future<void> _signOut() async {
-  try {
-    await Supabase.instance.client.auth.signOut();
-  } catch (e) {
-    debugPrint('Ошибка при выходе: $e');
-  }
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } catch (e) {
+      debugPrint('Ошибка при выходе: $e');
+    }
 
-  if (mounted) {
-    // Полная очистка навигации и переход на LoginScreen
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false, // Удаляем ВСЕ маршруты из стека
-    );
+    if (mounted) {
+      // Полная очистка навигации и переход на LoginScreen
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false, // Удаляем ВСЕ маршруты из стека
+      );
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -83,10 +85,8 @@ class _WorkerHomeState extends State<WorkerHome> {
             icon: Icon(Icons.view_timeline),
             label: 'Этапы',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble),
-            label: 'Чат',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: 'Чат'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Профиль'),
         ],
       ),
     );

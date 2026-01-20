@@ -1,17 +1,16 @@
 import 'package:development/screens/settings/app_colors.dart';
 import 'package:development/services/auth_wrapper.dart';
+import 'package:flutter/foundation.dart'; // ← Добавляем для kDebugMode
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:device_preview/device_preview.dart'; // ← Добавляем Device Preview
+import 'package:device_preview/device_preview.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Загружаем .env файл
   await dotenv.load(fileName: ".env");
 
-  // Инициализируем Supabase
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
@@ -19,11 +18,7 @@ void main() async {
 
   runApp(
     DevicePreview(
-      enabled: true, // В продакшене можно сделать !kReleaseMode
-      tools: const [
-        ...DevicePreview.defaultTools,
-        // Можно добавить/убрать инструменты по желанию
-      ],
+      enabled: !kReleaseMode, // ← Включен только в debug, в release — выключен
       builder: (context) => const MyApp(),
     ),
   );
@@ -37,12 +32,11 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Стройка Трекер',
       debugShowCheckedModeBanner: false,
-      useInheritedMediaQuery: true, // Требуется для Device Preview
-      locale: DevicePreview.locale(context), // Для тестирования локалей
-      builder: DevicePreview.appBuilder, // Важно! Обязательно для правильной работы
+      useInheritedMediaQuery: true,
+      locale: DevicePreview.locale(context),
+      builder: DevicePreview.appBuilder,
       theme: AppColors.lightTheme,
       home: const AuthWrapper(),
     );
   }
 }
-
