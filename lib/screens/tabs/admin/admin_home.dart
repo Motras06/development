@@ -37,6 +37,33 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return data?['is_admin'] == true;
   }
 
+  Future<void> _signOut() async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+
+      if (!mounted) return;
+
+      // Возвращаемся на экран авторизации / главную
+      // Вариант 1: полностью очистить стек и пойти на начальный экран
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+
+      // Вариант 2: просто pop, если у вас уже есть логика редиректа после logout
+      // Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Вы вышли из аккаунта')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка при выходе: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
@@ -46,7 +73,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
 
-        if (!snapshot.data!) {
+        if (!snapshot.hasData || !snapshot.data!) {
           return Scaffold(
             body: Center(
               child: Padding(
@@ -86,6 +113,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           appBar: AppBar(
             title: const Text('Админ-панель'),
             centerTitle: true,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.logout_rounded),
+                tooltip: 'Выйти из аккаунта',
+                onPressed: _signOut,
+              ),
+            ],
           ),
           body: DatabaseExplorer(tableName: _tables[_selectedIndex]),
           bottomNavigationBar: NavigationBar(

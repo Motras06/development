@@ -1,100 +1,25 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '/models/enums.dart';
+import 'create_stage_dialog.dart'; // ← добавь импорт, если ещё нет
 
-final supabase = Supabase.instance.client; // глобальный клиент, если он у тебя есть
-
-class StagesTab extends StatefulWidget {
-  const StagesTab({super.key});
-
-  @override
-  State<StagesTab> createState() => _StagesTabState();
-}
-
-class _StagesTabState extends State<StagesTab> {
-  List<Map<String, dynamic>> _projects = [];
-  Map<String, dynamic>? _selectedProject;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProjects();
-  }
-
-  Future<void> _loadProjects() async {
-    try {
-      final participantData = await supabase
-          .from('project_participants')
-          .select('project_id, projects(id, name)')
-          .eq('user_id', supabase.auth.currentUser!.id);
-
-      final myProjects = participantData.map((e) => e['projects'] as Map<String, dynamic>).toList();
-
-      setState(() {
-        _projects = myProjects;
-        if (_projects.isNotEmpty && _selectedProject == null) {
-          _selectedProject = _projects.first;
-        }
-      });
-    } catch (e) {
-      debugPrint('Ошибка загрузки проектов: $e');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: DropdownButton<Map<String, dynamic>?>(
-              isExpanded: true,
-              hint: const Text('Выберите проект'),
-              value: _selectedProject,
-              items: _projects.map((p) => DropdownMenuItem(value: p, child: Text(p['name']))).toList(),
-              onChanged: (value) => setState(() => _selectedProject = value),
-            ),
-          ),
-          Expanded(
-            child: _selectedProject == null
-                ? const Center(child: Text('Выберите проект'))
-                : StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: supabase
-                        .from('stages')
-                        .stream(primaryKey: ['id'])
-                        .eq('project_id', _selectedProject!['id'])
-                        .order('created_at'),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snapshot.hasError) return Center(child: Text('Ошибка: ${snapshot.error}'));
-                      final stages = snapshot.data ?? [];
-                      return ListView.builder(
-                        itemCount: stages.length,
-                        itemBuilder: (context, index) {
-                          return StageCard(
-                            stage: stages[index],
-                            onStageUpdated: () => setState(() {}),
-                          );
-                        },
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+final supabase = Supabase.instance.client;
 
 class StageCard extends StatefulWidget {
   final Map<String, dynamic> stage;
-  final VoidCallback? onStageUpdated;
+  final VoidCallback? onRefresh;
 
-  const StageCard({super.key, required this.stage, this.onStageUpdated});
+  const StageCard({
+    super.key,
+    required this.stage,
+    this.onRefresh,
+  });
 
   @override
   State<StageCard> createState() => _StageCardState();
@@ -118,9 +43,9 @@ class _StageCardState extends State<StageCard> {
   Future<void> _loadDocumentsAndComments() async {
     try {
       final docsRes = await supabase
-          .from('technical_documents')
+          .from('stage_documents')
           .select()
-          .eq('project_id', widget.stage['project_id'])
+          .eq('stage_id', widget.stage['id'])
           .order('uploaded_at', ascending: false);
 
       final commRes = await supabase
@@ -137,7 +62,7 @@ class _StageCardState extends State<StageCard> {
         });
       }
     } catch (e) {
-      debugPrint('Ошибка загрузки: $e');
+      debugPrint('Ошибка загрузки документов/комментариев: $e');
     }
   }
 
@@ -170,12 +95,17 @@ class _StageCardState extends State<StageCard> {
 
                 if (mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Комментарий добавлен')));
-                  _loadDocumentsAndComments(); // обновляем список
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Комментарий добавлен')),
+                  );
+                  _loadDocumentsAndComments();
+                  widget.onRefresh?.call();
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка: $e')),
+                  );
                 }
               }
             },
@@ -186,17 +116,98 @@ class _StageCardState extends State<StageCard> {
     );
   }
 
-  Future<void> _openDocument(Map<String, dynamic> doc) async {
-    final url = doc['file_url'] as String?;
-    if (url == null) return;
+  // Метод редактирования этапа (был пропущен)
+  Future<void> _editStage() async {
+    CreateStageDialog.show(
+      context,
+      projectId: widget.stage['project_id'],
+      stageToEdit: widget.stage,
+      onSuccess: widget.onRefresh,
+    );
+  }
 
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Не удалось открыть файл')));
+  // Метод удаления этапа (был пропущен)
+  Future<void> _deleteStage() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Удалить этап?'),
+        content: const Text(
+          'Все связанные данные (документы, комментарии) будут удалены без возможности восстановления.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await supabase.from('stages').delete().eq('id', widget.stage['id']);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Этап удалён')),
+        );
+        widget.onRefresh?.call();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка удаления: $e')),
+        );
+      }
     }
   }
+
+  Future<void> _openDocument(Map<String, dynamic> doc) async {
+  final url = doc['file_url'] as String?;
+  if (url == null) return;
+
+  try {
+    final dio = Dio();
+    final fileName = doc['name'] ?? 'file_${DateTime.now().millisecondsSinceEpoch}';
+
+    // Самый надёжный путь к Downloads (работает без разрешений на Android 11+)
+    final directory = await getDownloadsDirectory();
+    if (directory == null) {
+      throw Exception('Не удалось получить директорию Downloads');
+    }
+
+    final savePath = '${directory.path}/$fileName';
+
+    // Скачиваем файл
+    await dio.download(url, savePath);
+
+    // Открываем скачанный файл
+    final openResult = await OpenFilex.open(savePath);
+
+    if (openResult.type != ResultType.done && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось открыть файл: ${openResult.message}')),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Файл скачан в Downloads: $fileName')),
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка скачивания: $e')),
+      );
+    }
+    debugPrint('Ошибка при скачивании файла: $e');
+  }
+}
 
   IconData _getFileIcon(String? fileName) {
     if (fileName == null) return Icons.insert_drive_file;
@@ -226,12 +237,14 @@ class _StageCardState extends State<StageCard> {
       children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
-        ...items.map((r) => Padding(
-              padding: const EdgeInsets.only(left: 12, bottom: 4),
-              child: Text(
-                '• ${r['name']} ${r['quantity'] != null ? ' — ${r['quantity']} ${r['unit'] ?? ''}' : ''}',
-              ),
-            )),
+        ...items.map(
+          (r) => Padding(
+            padding: const EdgeInsets.only(left: 12, bottom: 4),
+            child: Text(
+              '• ${r['name']} ${r['quantity'] != null ? ' — ${r['quantity']} ${r['unit'] ?? ''}' : ''}',
+            ),
+          ),
+        ),
         const SizedBox(height: 8),
       ],
     );
@@ -268,10 +281,26 @@ class _StageCardState extends State<StageCard> {
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+        title: Text(
+          name,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
         subtitle: Text(
           '${start ?? '—'} → ${end ?? '—'}',
           style: TextStyle(color: Colors.grey[700]),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              onPressed: _editStage, // ← теперь метод существует
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: _deleteStage, // ← теперь метод существует
+            ),
+          ],
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         children: [
@@ -285,26 +314,30 @@ class _StageCardState extends State<StageCard> {
 
           const Divider(height: 28),
 
-          // Документы
           ListTile(
             leading: const Icon(Icons.attach_file),
             title: Text('Документы (${_documents.length})'),
           ),
           if (_documents.isNotEmpty)
-            ..._documents.map((doc) => ListTile(
-                  dense: true,
-                  leading: Icon(_getFileIcon(doc['name'] as String?)),
-                  title: Text(doc['name'] ?? 'Без имени', maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(
-                    _formatDate(doc['uploaded_at'] as String?),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  onTap: () => _openDocument(doc),
-                )),
+            ..._documents.map(
+              (doc) => ListTile(
+                dense: true,
+                leading: Icon(_getFileIcon(doc['name'] as String?)),
+                title: Text(
+                  doc['name'] ?? 'Без имени',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  _formatDate(doc['uploaded_at'] as String?),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                onTap: () => _openDocument(doc),
+              ),
+            ),
 
           const Divider(height: 28),
 
-          // Комментарии
           ListTile(
             leading: const Icon(Icons.comment_outlined),
             title: Text('Комментарии (${_comments.length})'),
@@ -314,18 +347,24 @@ class _StageCardState extends State<StageCard> {
             ),
           ),
           if (_comments.isNotEmpty)
-            ..._comments.take(5).map((c) => ListTile(
-                  dense: true,
-                  leading: CircleAvatar(
-                    radius: 14,
-                    child: Text(c['users']?['full_name']?[0] ?? '?'),
+            ..._comments.take(5).map(
+                  (c) => ListTile(
+                    dense: true,
+                    leading: CircleAvatar(
+                      radius: 14,
+                      child: Text(c['users']?['full_name']?[0] ?? '?'),
+                    ),
+                    title: Text(
+                      c['text'] ?? '',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      '${c['users']?['full_name'] ?? 'Аноним'} • ${_formatDate(c['created_at'] as String?)}',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ),
-                  title: Text(c['text'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(
-                    '${c['users']?['full_name'] ?? 'Аноним'} • ${_formatDate(c['created_at'] as String?)}',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                )),
+                ),
           if (_comments.length > 5)
             TextButton(
               onPressed: () => ScaffoldMessenger.of(context).showSnackBar(

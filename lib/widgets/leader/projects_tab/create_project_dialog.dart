@@ -6,6 +6,7 @@ class CreateProjectDialog {
   static Future<void> show(
     BuildContext context, {
     Map<String, dynamic>? projectToEdit,
+    VoidCallback? onSuccess, // ← callback для обновления списка
   }) async {
     final _supabase = Supabase.instance.client;
     final userId = _supabase.auth.currentUser?.id;
@@ -23,14 +24,12 @@ class CreateProjectDialog {
         ? DateTime.tryParse(projectToEdit['end_date'])
         : null;
 
-    // Ручной прогресс
     double manualProgress = isEdit && projectToEdit['manual_progress'] != null
         ? (projectToEdit['manual_progress'] as num).toDouble().clamp(0.0, 100.0)
         : 0.0;
 
     final progressTextController = TextEditingController(text: manualProgress.toInt().toString());
 
-    // Статус проекта
     ProjectStatus selectedStatus = isEdit && projectToEdit['status'] != null
         ? ProjectStatus.values.firstWhere(
             (e) => e.name == projectToEdit['status'],
@@ -312,6 +311,9 @@ class CreateProjectDialog {
                                       content: Text(isEdit ? 'Проект обновлён' : 'Проект создан'),
                                     ),
                                   );
+
+                                  // Триггерим обновление списка
+                                  onSuccess?.call();
                                 }
                               } catch (e) {
                                 if (context.mounted) {

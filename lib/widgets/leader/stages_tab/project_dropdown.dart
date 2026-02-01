@@ -125,22 +125,21 @@ class ProjectDropdown extends StatelessWidget {
           selectedItemBuilder: (context) {
             return projects.map<Widget>((project) {
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
                 child: Row(
                   children: [
                     Icon(
                       Icons.folder_special,
                       color: colorScheme.primary,
-                      size: 24,
+                      size: 20,
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         project['name'],
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),

@@ -23,7 +23,7 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
   static const Map<String, String> _sortColumns = {
     'technical_documents': 'uploaded_at',
     'project_participants': 'joined_at',
-    'messages': 'created_at',      // или 'sent_at' если есть
+    'messages': 'created_at', // или 'sent_at' если есть
     // добавляйте другие таблицы по необходимости
   };
 
@@ -48,38 +48,39 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
   }
 
   Future<void> _loadData() async {
-    try {
-      setState(() {
-        _loading = true;
-        _errorMessage = null;
-      });
+  try {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
 
-      PostgrestTransformBuilder<PostgrestList> query = supabase.from(widget.tableName).select();
+    final sortColumn = _sortColumns[widget.tableName] ?? 'created_at';
 
-      // Выбираем подходящую колонку для сортировки
-      final sortColumn = _sortColumns[widget.tableName] ?? 'created_at';
+    // Строим запрос в одну цепочку
+    var baseQuery = supabase.from(widget.tableName).select();
 
-      // Пробуем отсортировать, если колонка существует — ок, если нет — без сортировки
-      try {
-        query = query.order(sortColumn, ascending: false);
-      } catch (e) {
-        dev.log('Не удалось отсортировать по $sortColumn: $e');
-        // просто продолжаем без сортировки
-      }
+    // Условный фильтр без изменения переменной
+    final filteredQuery = ['profiles', 'users', 'user_profiles']
+            .contains(widget.tableName)
+        ? baseQuery.neq('primary_role', 'admin')
+        : baseQuery;
 
-      final data = await query.limit(200);
+    final data = await filteredQuery
+        .order(sortColumn, ascending: false)
+        .limit(200);
 
-      setState(() {
-        _rows = List<Map<String, dynamic>>.from(data);
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = _beautifyError(e);
-        _loading = false;
-      });
-    }
+    setState(() {
+      _rows = List<Map<String, dynamic>>.from(data);
+      _loading = false;
+    });
+  } catch (e, stack) {
+    dev.log('Ошибка загрузки: $e\n$stack');
+    setState(() {
+      _errorMessage = _beautifyError(e);
+      _loading = false;
+    });
   }
+}
 
   String _beautifyError(dynamic e) {
     final errorStr = e.toString();
@@ -98,9 +99,9 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
     try {
       await supabase.from(widget.tableName).delete().eq('id', id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Запись удалена')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Запись удалена')));
       _loadData();
     } catch (e) {
       if (!mounted) return;
@@ -123,15 +124,18 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
       allKeys = _rows.first.keys.toSet();
     }
 
-    final editableFields = allKeys
-        .where((k) =>
-            k != 'id' &&
-            !k.contains('created_at') &&
-            !k.contains('updated_at') &&
-            !k.contains('joined_at') &&  // можно расширить список
-            !k.contains('uploaded_at'))
-        .toList()
-      ..sort(); // для предсказуемого порядка
+    final editableFields =
+        allKeys
+            .where(
+              (k) =>
+                  k != 'id' &&
+                  !k.contains('created_at') &&
+                  !k.contains('updated_at') &&
+                  !k.contains('joined_at') && // можно расширить список
+                  !k.contains('uploaded_at'),
+            )
+            .toList()
+          ..sort(); // для предсказуемого порядка
 
     if (editableFields.isEmpty && !isNew) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -154,7 +158,9 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
           return Container(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
             ),
             child: Scaffold(
               backgroundColor: Colors.transparent,
@@ -169,7 +175,9 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
                     onPressed: () async {
                       try {
                         if (isNew) {
-                          await supabase.from(widget.tableName).insert(tempData);
+                          await supabase
+                              .from(widget.tableName)
+                              .insert(tempData);
                         } else {
                           await supabase
                               .from(widget.tableName)
@@ -182,14 +190,18 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
                         await _loadData();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(isNew ? 'Запись создана' : 'Изменения сохранены'),
+                            content: Text(
+                              isNew ? 'Запись создана' : 'Изменения сохранены',
+                            ),
                           ),
                         );
                       } catch (e) {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Ошибка сохранения: ${_beautifyError(e)}'),
+                            content: Text(
+                              'Ошибка сохранения: ${_beautifyError(e)}',
+                            ),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -220,7 +232,9 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 20),
                           child: TextField(
-                            controller: TextEditingController(text: initialValue),
+                            controller: TextEditingController(
+                              text: initialValue,
+                            ),
                             decoration: InputDecoration(
                               labelText: _formatFieldName(field),
                               border: OutlineInputBorder(
@@ -229,7 +243,8 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
                               filled: true,
                             ),
                             maxLines: _needsMultiline(field) ? 4 : 1,
-                            onChanged: (v) => tempData[field] = v.isEmpty ? null : v,
+                            onChanged: (v) =>
+                                tempData[field] = v.isEmpty ? null : v,
                           ),
                         );
                       }),
@@ -270,127 +285,125 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
         child: _loading
             ? const Center(child: CircularProgressIndicator.adaptive())
             : _errorMessage != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.error_outline_rounded,
-                              size: 64, color: colorScheme.error),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Не удалось загрузить данные',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _errorMessage!,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: colorScheme.error),
-                          ),
-                        ],
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.error_outline_rounded,
+                        size: 64,
+                        color: colorScheme.error,
                       ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Не удалось загрузить данные',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: colorScheme.error),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : _rows.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.folder_open_rounded,
+                      size: 88,
+                      color: colorScheme.outline,
                     ),
-                  )
-                : _rows.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                    const SizedBox(height: 24),
+                    Text('Пока нет записей', style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Нажмите кнопку "+" чтобы добавить первую запись',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 90),
+                itemCount: _rows.length,
+                itemBuilder: (context, index) {
+                  final row = _rows[index];
+                  final titleField = _guessTitleField(row);
+                  final subtitle = _guessSubtitle(row);
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => _showEditBottomSheet(initial: row),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.folder_open_rounded,
-                                size: 88, color: colorScheme.outline),
-                            const SizedBox(height: 24),
-                            Text(
-                              'Пока нет записей',
-                              style: theme.textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Нажмите кнопку "+" чтобы добавить первую запись',
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    row[titleField]?.toString() ??
+                                        '(без названия)',
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (subtitle.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      subtitle,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'ID: ${(row['id']?.toString() ?? '').substring(0, row['id'] != null ? 8 : 0)}...',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.outline,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              textAlign: TextAlign.center,
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: colorScheme.error,
+                              ),
+                              onPressed: () => _confirmDelete(row['id']),
                             ),
                           ],
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 90),
-                        itemCount: _rows.length,
-                        itemBuilder: (context, index) {
-                          final row = _rows[index];
-                          final titleField = _guessTitleField(row);
-                          final subtitle = _guessSubtitle(row);
-
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            elevation: 1,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () => _showEditBottomSheet(initial: row),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            row[titleField]?.toString() ??
-                                                '(без названия)',
-                                            style: theme.textTheme.titleMedium
-                                                ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          if (subtitle.isNotEmpty) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              subtitle,
-                                              style: theme.textTheme.bodyMedium
-                                                  ?.copyWith(
-                                                color: colorScheme
-                                                    .onSurfaceVariant,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'ID: ${(row['id']?.toString() ?? '').substring(0, row['id'] != null ? 8 : 0)}...',
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                              color: colorScheme.outline,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.delete_outline_rounded,
-                                        color: colorScheme.error,
-                                      ),
-                                      onPressed: () => _confirmDelete(row['id']),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
                       ),
+                    ),
+                  );
+                },
+              ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showEditBottomSheet(),
@@ -444,10 +457,7 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
     }
 
     // Если ничего не нашли — первое не-id поле
-    return row.keys.firstWhere(
-      (k) => k != 'id',
-      orElse: () => 'id',
-    );
+    return row.keys.firstWhere((k) => k != 'id', orElse: () => 'id');
   }
 
   String _guessSubtitle(Map<String, dynamic> row) {

@@ -7,8 +7,9 @@ import '/models/enums.dart';
 
 class ProjectCard extends StatefulWidget {
   final Map<String, dynamic> project;
+  final VoidCallback? onRefresh; // Добавлен
 
-  const ProjectCard({super.key, required this.project});
+  const ProjectCard({super.key, required this.project, this.onRefresh});
 
   @override
   State<ProjectCard> createState() => _ProjectCardState();
@@ -23,8 +24,12 @@ class _ProjectCardState extends State<ProjectCard> {
   }
 
   void _editProject() {
-    CreateProjectDialog.show(context, projectToEdit: widget.project);
-    // больше не нужно пересчитывать — значение придёт со стримом
+    CreateProjectDialog.show(
+      context,
+      projectToEdit: widget.project,
+      onSuccess: widget
+          .onRefresh, // ← передаём дальше, если редактирование тоже должно обновлять
+    );
   }
 
   void _showProjectDetails() {
@@ -62,7 +67,9 @@ class _ProjectCardState extends State<ProjectCard> {
                   width: 60,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -74,9 +81,8 @@ class _ProjectCardState extends State<ProjectCard> {
                   Expanded(
                     child: Text(
                       name,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
                   IconButton(
@@ -90,14 +96,20 @@ class _ProjectCardState extends State<ProjectCard> {
               ),
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   _statusDisplayName(status),
-                  style: TextStyle(color: statusColor, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -106,7 +118,10 @@ class _ProjectCardState extends State<ProjectCard> {
               const SizedBox(height: 20),
               Row(
                 children: [
-                  Icon(Icons.calendar_today, color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    Icons.calendar_today,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(width: 12),
                   Text('Начало: ${startDate ?? 'не указано'}'),
                 ],
@@ -114,7 +129,10 @@ class _ProjectCardState extends State<ProjectCard> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.calendar_today_outlined, color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(width: 12),
                   Text('Окончание: ${endDate ?? 'не указано'}'),
                 ],
@@ -125,7 +143,9 @@ class _ProjectCardState extends State<ProjectCard> {
                   children: [
                     Icon(
                       Icons.access_time,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.6),
                     ),
                     const SizedBox(width: 12),
                     Text('Создан: ${createdAt.split('T')[0]}'),
@@ -135,13 +155,18 @@ class _ProjectCardState extends State<ProjectCard> {
               const SizedBox(height: 32),
               Text(
                 'Прогресс: ${(progress * 100).toInt()}%',
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 12),
               LinearProgressIndicator(
                 value: progress,
                 backgroundColor: Colors.grey[300],
-                valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
+                valueColor: AlwaysStoppedAnimation(
+                  Theme.of(context).colorScheme.primary,
+                ),
                 minHeight: 10,
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -209,41 +234,53 @@ class _ProjectCardState extends State<ProjectCard> {
         ),
         confirmDismiss: (direction) async {
           HapticFeedback.heavyImpact();
+
           final confirm = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Удалить проект?'),
-              content: const Text(
-                'Все этапы, работы и связанные данные будут удалены без возможности восстановления.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Отмена'),
+            context: context, // ← добавили
+            builder: (BuildContext dialogContext) {
+              // ← добавили
+              return AlertDialog(
+                title: const Text('Удалить проект?'),
+                content: const Text(
+                  'Все этапы, работы и связанные данные будут удалены без возможности восстановления.',
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Удалить', style: TextStyle(color: Colors.red)),
-                ),
-              ],
-            ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Отмена'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text(
+                      'Удалить',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
+              );
+            },
           );
 
           if (confirm != true) return false;
 
           try {
-            await _supabase.from('projects').delete().eq('id', widget.project['id']);
+            await _supabase
+                .from('projects')
+                .delete()
+                .eq('id', widget.project['id']);
+
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Проект удалён')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Проект удалён')));
+              widget.onRefresh?.call();
             }
             return true;
           } catch (e) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Ошибка удаления: $e')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e')));
             }
             return false;
           }
@@ -260,7 +297,10 @@ class _ProjectCardState extends State<ProjectCard> {
                   radius: 22,
                   child: Text(
                     status.name[0].toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -270,7 +310,10 @@ class _ProjectCardState extends State<ProjectCard> {
                     children: [
                       Text(
                         name,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       if (description != null && description.isNotEmpty)
                         Padding(
@@ -291,7 +334,10 @@ class _ProjectCardState extends State<ProjectCard> {
                           const SizedBox(width: 6),
                           Text(
                             _statusDisplayName(status),
-                            style: TextStyle(color: statusColor, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              color: statusColor,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
@@ -353,18 +399,18 @@ class _ProjectCardState extends State<ProjectCard> {
 
   Color _getStatusColor(ProjectStatus status) {
     return switch (status) {
-      ProjectStatus.active    => Colors.green,
-      ProjectStatus.paused    => Colors.orange,
-      ProjectStatus.archived  => Colors.grey,
+      ProjectStatus.active => Colors.green,
+      ProjectStatus.paused => Colors.orange,
+      ProjectStatus.archived => Colors.grey,
       ProjectStatus.completed => Colors.blue,
     };
   }
 
   String _statusDisplayName(ProjectStatus status) {
     return switch (status) {
-      ProjectStatus.active    => 'Активный',
-      ProjectStatus.paused    => 'На паузе',
-      ProjectStatus.archived  => 'В архиве',
+      ProjectStatus.active => 'Активный',
+      ProjectStatus.paused => 'На паузе',
+      ProjectStatus.archived => 'В архиве',
       ProjectStatus.completed => 'Завершён',
     };
   }

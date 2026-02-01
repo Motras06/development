@@ -1,3 +1,4 @@
+// stages_tab.dart
 import 'package:development/widgets/leader/stages_tab/create_stage_dialog.dart';
 import 'package:development/widgets/leader/stages_tab/stage_card.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,11 @@ class _StagesTabState extends State<StagesTab> with SingleTickerProviderStateMix
 
   List<Map<String, dynamic>> _projects = [];
   Map<String, dynamic>? _selectedProject;
+
+  List<Map<String, dynamic>> _stages = [];
+  bool _isLoadingStages = false;
+  String? _stagesError;
+
   String _searchQuery = '';
 
   late AnimationController _fabAnimationController;
@@ -47,24 +53,61 @@ class _StagesTabState extends State<StagesTab> with SingleTickerProviderStateMix
   }
 
   Future<void> _loadProjects() async {
-    if (userId == null) return;
-
     try {
-      final data = await _supabase
-          .from('projects')
-          .select('id, name')
-          .eq('created_by', userId!)
-          .order('created_at', ascending: false);
+      final participantData = await _supabase
+          .from('project_participants')
+          .select('project_id, projects(id, name)')
+          .eq('user_id', userId!);
+
+      final myProjects = participantData.map((e) => e['projects'] as Map<String, dynamic>).toList();
 
       setState(() {
-        _projects = List<Map<String, dynamic>>.from(data);
+        _projects = myProjects;
         if (_projects.isNotEmpty && _selectedProject == null) {
           _selectedProject = _projects.first;
+          _loadStages();
         }
       });
     } catch (e) {
       debugPrint('Ошибка загрузки проектов: $e');
     }
+  }
+
+  Future<void> _loadStages() async {
+    if (_selectedProject == null) return;
+
+    setState(() {
+      _isLoadingStages = true;
+      _stagesError = null;
+    });
+
+    try {
+      final data = await _supabase
+          .from('stages')
+          .select()
+          .eq('project_id', _selectedProject!['id'])
+          .order('created_at', ascending: true);
+
+      if (mounted) {
+        setState(() {
+          _stages = List<Map<String, dynamic>>.from(data);
+          _isLoadingStages = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _stagesError = e.toString();
+          _isLoadingStages = false;
+        });
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> get _filteredStages {
+    return _stages.where((s) {
+      return (s['name'] as String).toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
   }
 
   @override
@@ -74,126 +117,122 @@ class _StagesTabState extends State<StagesTab> with SingleTickerProviderStateMix
 
     return Scaffold(
       extendBody: true,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              colorScheme.primary.withOpacity(0.05),
-              colorScheme.surface,
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [colorScheme.primary.withOpacity(0.05), colorScheme.surface],
+            ),
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: ProjectDropdown(
+                  projects: _projects,
+                  selectedProject: _selectedProject,
+                  onChanged: (value) {
+                    setState(() => _selectedProject = value);
+                    if (value != null) _loadStages();
+                  },
+                ),
+              ),
+
+              FilterControls(
+                searchQuery: _searchQuery,
+                onSearchChanged: (value) => setState(() => _searchQuery = value),
+              ),
+
+              const SizedBox(height: 12),
+
+              Expanded(
+                child: _selectedProject == null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.view_week_outlined,
+                                size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                            const SizedBox(height: 16),
+                            Text('Выберите проект',
+                                style: theme.textTheme.titleLarge
+                                    ?.copyWith(color: colorScheme.onSurface.withOpacity(0.6))),
+                            const SizedBox(height: 8),
+                            Text('Чтобы увидеть этапы',
+                                style: theme.textTheme.bodyMedium
+                                    ?.copyWith(color: colorScheme.onSurface.withOpacity(0.5))),
+                          ],
+                        ),
+                      )
+                    : _isLoadingStages
+                        ? const Center(child: CircularProgressIndicator())
+                        : _stagesError != null
+                            ? Center(child: Text('Ошибка: $_stagesError'))
+                            : _filteredStages.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.view_week,
+                                            size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                                        const SizedBox(height: 16),
+                                        Text('Нет этапов',
+                                            style: theme.textTheme.titleLarge
+                                                ?.copyWith(color: colorScheme.onSurface.withOpacity(0.6))),
+                                        const SizedBox(height: 8),
+                                        Text('Нажмите "+" для создания первого этапа',
+                                            textAlign: TextAlign.center,
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(color: colorScheme.onSurface.withOpacity(0.5))),
+                                      ],
+                                    ),
+                                  )
+                                : RefreshIndicator(
+                                    onRefresh: _loadStages,
+                                    child: ListView.separated(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      itemCount: _filteredStages.length,
+                                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                      itemBuilder: (context, index) {
+                                        return AnimatedSlide(
+                                          duration: Duration(milliseconds: 300 + index * 50),
+                                          offset: Offset(0, index * 0.05),
+                                          curve: Curves.easeOutCubic,
+                                          child: StageCard(
+                                            stage: _filteredStages[index],
+                                            onRefresh: _loadStages, // ← теперь работает
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+              ),
             ],
           ),
         ),
-        child: Column(
-          children: [
-            // Выбор проекта — теперь с красивым ProjectDropdown
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ProjectDropdown(
-                projects: _projects,
-                selectedProject: _selectedProject,
-                onChanged: (value) => setState(() => _selectedProject = value),
-              ),
-            ),
-
-            // Поиск
-            FilterControls(
-              searchQuery: _searchQuery,
-              onSearchChanged: (value) => setState(() => _searchQuery = value),
-            ),
-
-            const SizedBox(height: 12),
-
-            // Список этапов
-            Expanded(
-              child: _selectedProject == null
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.view_week_outlined, size: 80, color: colorScheme.primary.withOpacity(0.4)),
-                          const SizedBox(height: 16),
-                          Text('Выберите проект', style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurface.withOpacity(0.6))),
-                          const SizedBox(height: 8),
-                          Text('Чтобы увидеть этапы', style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.5))),
-                        ],
-                      ),
-                    )
-                  : StreamBuilder<List<Map<String, dynamic>>>(
-                      stream: _supabase
-                          .from('stages')
-                          .stream(primaryKey: ['id'])
-                          .eq('project_id', _selectedProject!['id'])
-                          .order('created_at', ascending: true),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
-                        }
-                        if (snapshot.hasError) {
-                          return Center(child: Text('Ошибка: ${snapshot.error}'));
-                        }
-
-                        final stages = snapshot.data ?? [];
-
-                        final filtered = stages.where((s) {
-                          return (s['name'] as String).toLowerCase().contains(_searchQuery.toLowerCase());
-                        }).toList();
-
-                        if (filtered.isEmpty) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.view_week, size: 80, color: colorScheme.primary.withOpacity(0.4)),
-                                const SizedBox(height: 16),
-                                Text('Нет этапов', style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurface.withOpacity(0.6))),
-                                const SizedBox(height: 8),
-                                Text('Нажмите "+" для создания первого этапа', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.5))),
-                              ],
-                            ),
-                          );
-                        }
-
-                        return ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            return AnimatedSlide(
-                              duration: Duration(milliseconds: 300 + index * 50),
-                              offset: Offset(0, index * 0.05),
-                              curve: Curves.easeOutCubic,
-                              child: StageCard(stage: filtered[index]),
-                            );
-                          },
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
       ),
 
-      // FAB
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80),
+        padding: const EdgeInsets.only(bottom: 90),
         child: ScaleTransition(
           scale: _fabScaleAnimation,
           child: FloatingActionButton.extended(
             onPressed: _selectedProject == null
                 ? null
-                : () => CreateStageDialog.show(context, projectId: _selectedProject!['id']),
+                : () => CreateStageDialog.show(
+                      context,
+                      projectId: _selectedProject!['id'],
+                      onSuccess: _loadStages,
+                    ),
             backgroundColor: _selectedProject == null
                 ? colorScheme.surface.withOpacity(0.6)
                 : colorScheme.primary,
