@@ -1,6 +1,12 @@
 // lib/screens/admin/database_explorer.dart
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
 import 'dart:developer' as dev;
 
 class DatabaseExplorer extends StatefulWidget {
@@ -21,9 +27,9 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
 
   // Карта таблиц → имя колонки для сортировки по времени
   static const Map<String, String> _sortColumns = {
-    'technical_documents': 'uploaded_at',
+    'stage_documents': 'uploaded_at',
     'project_participants': 'joined_at',
-    'messages': 'created_at', // или 'sent_at' если есть
+    'messages': 'created_at',
     // добавляйте другие таблицы по необходимости
   };
 
@@ -48,39 +54,44 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
   }
 
   Future<void> _loadData() async {
-  try {
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
+    try {
+      setState(() {
+        _loading = true;
+        _errorMessage = null;
+      });
 
-    final sortColumn = _sortColumns[widget.tableName] ?? 'created_at';
+      final sortColumn = _sortColumns[widget.tableName] ?? 'created_at';
 
-    // Строим запрос в одну цепочку
-    var baseQuery = supabase.from(widget.tableName).select();
+      // Начинаем цепочку
+      var query = supabase.from(widget.tableName);
 
-    // Условный фильтр без изменения переменной
-    final filteredQuery = ['profiles', 'users', 'user_profiles']
-            .contains(widget.tableName)
-        ? baseQuery.neq('primary_role', 'admin')
-        : baseQuery;
+      // Фильтр ДО .select()
 
-    final data = await filteredQuery
-        .order(sortColumn, ascending: false)
-        .limit(200);
 
-    setState(() {
-      _rows = List<Map<String, dynamic>>.from(data);
-      _loading = false;
-    });
-  } catch (e, stack) {
-    dev.log('Ошибка загрузки: $e\n$stack');
-    setState(() {
-      _errorMessage = _beautifyError(e);
-      _loading = false;
-    });
+      // Для stage_documents — добавляем join на автора (если RLS позволяет)
+      String selectFields = '*';
+      if (widget.tableName == 'stage_documents') {
+        selectFields = '*, uploaded_by_user:uploaded_by(full_name)';
+      }
+
+      // Финальный запрос: select → order → limit
+      final data = await query
+          .select(selectFields)
+          .order(sortColumn, ascending: false)
+          .limit(200);
+
+      setState(() {
+        _rows = List<Map<String, dynamic>>.from(data);
+        _loading = false;
+      });
+    } catch (e, stack) {
+      dev.log('Ошибка загрузки: $e\n$stack');
+      setState(() {
+        _errorMessage = _beautifyError(e);
+        _loading = false;
+      });
+    }
   }
-}
 
   String _beautifyError(dynamic e) {
     final errorStr = e.toString();
@@ -89,6 +100,9 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
     }
     if (errorStr.contains('permission denied')) {
       return 'Нет прав доступа к таблице. Проверьте RLS политики в Supabase';
+    }
+    if (errorStr.contains('relationship') || errorStr.contains('foreign key')) {
+      return 'Проблема с join (uploaded_by_user). Проверьте RLS для users';
     }
     return 'Ошибка: $errorStr';
   }
@@ -99,9 +113,9 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
     try {
       await supabase.from(widget.tableName).delete().eq('id', id);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Запись удалена')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Запись удалена')),
+      );
       _loadData();
     } catch (e) {
       if (!mounted) return;
@@ -118,24 +132,23 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
     final isNew = initial == null;
     final tempData = Map<String, dynamic>.from(initial ?? {});
 
-    // Безопасное получение списка редактируемых полей
     Set<String> allKeys = {};
     if (_rows.isNotEmpty) {
       allKeys = _rows.first.keys.toSet();
     }
 
-    final editableFields =
-        allKeys
-            .where(
-              (k) =>
-                  k != 'id' &&
-                  !k.contains('created_at') &&
-                  !k.contains('updated_at') &&
-                  !k.contains('joined_at') && // можно расширить список
-                  !k.contains('uploaded_at'),
-            )
-            .toList()
-          ..sort(); // для предсказуемого порядка
+    final editableFields = allKeys
+        .where(
+          (k) =>
+              k != 'id' &&
+              !k.contains('created_at') &&
+              !k.contains('updated_at') &&
+              !k.contains('joined_at') &&
+              !k.contains('uploaded_at') &&
+              !k.contains('uploaded_by_user'), // исключаем join-поле
+        )
+        .toList()
+      ..sort();
 
     if (editableFields.isEmpty && !isNew) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -158,9 +171,7 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
           return Container(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             ),
             child: Scaffold(
               backgroundColor: Colors.transparent,
@@ -175,14 +186,9 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
                     onPressed: () async {
                       try {
                         if (isNew) {
-                          await supabase
-                              .from(widget.tableName)
-                              .insert(tempData);
+                          await supabase.from(widget.tableName).insert(tempData);
                         } else {
-                          await supabase
-                              .from(widget.tableName)
-                              .update(tempData)
-                              .eq('id', initial?['id']);
+                          await supabase.from(widget.tableName).update(tempData).eq('id', initial?['id']);
                         }
 
                         if (!mounted) return;
@@ -190,18 +196,14 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
                         await _loadData();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(
-                              isNew ? 'Запись создана' : 'Изменения сохранены',
-                            ),
+                            content: Text(isNew ? 'Запись создана' : 'Изменения сохранены'),
                           ),
                         );
                       } catch (e) {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(
-                              'Ошибка сохранения: ${_beautifyError(e)}',
-                            ),
+                            content: Text('Ошибка сохранения: ${_beautifyError(e)}'),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -232,19 +234,14 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 20),
                           child: TextField(
-                            controller: TextEditingController(
-                              text: initialValue,
-                            ),
+                            controller: TextEditingController(text: initialValue),
                             decoration: InputDecoration(
                               labelText: _formatFieldName(field),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                               filled: true,
                             ),
                             maxLines: _needsMultiline(field) ? 4 : 1,
-                            onChanged: (v) =>
-                                tempData[field] = v.isEmpty ? null : v,
+                            onChanged: (v) => tempData[field] = v.isEmpty ? null : v,
                           ),
                         );
                       }),
@@ -285,125 +282,109 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
         child: _loading
             ? const Center(child: CircularProgressIndicator.adaptive())
             : _errorMessage != null
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.error_outline_rounded,
-                        size: 64,
-                        color: colorScheme.error,
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.error_outline_rounded, size: 64, color: colorScheme.error),
+                          const SizedBox(height: 16),
+                          Text('Не удалось загрузить данные', style: theme.textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          Text(_errorMessage!, textAlign: TextAlign.center, style: TextStyle(color: colorScheme.error)),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Не удалось загрузить данные',
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _errorMessage!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: colorScheme.error),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : _rows.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.folder_open_rounded,
-                      size: 88,
-                      color: colorScheme.outline,
                     ),
-                    const SizedBox(height: 24),
-                    Text('Пока нет записей', style: theme.textTheme.titleLarge),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Нажмите кнопку "+" чтобы добавить первую запись',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 90),
-                itemCount: _rows.length,
-                itemBuilder: (context, index) {
-                  final row = _rows[index];
-                  final titleField = _guessTitleField(row);
-                  final subtitle = _guessSubtitle(row);
-
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () => _showEditBottomSheet(initial: row),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  )
+                : _rows.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    row[titleField]?.toString() ??
-                                        '(без названия)',
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (subtitle.isNotEmpty) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      subtitle,
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
-                                          ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'ID: ${(row['id']?.toString() ?? '').substring(0, row['id'] != null ? 8 : 0)}...',
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: colorScheme.outline,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete_outline_rounded,
-                                color: colorScheme.error,
-                              ),
-                              onPressed: () => _confirmDelete(row['id']),
+                            Icon(Icons.folder_open_rounded, size: 88, color: colorScheme.outline),
+                            const SizedBox(height: 24),
+                            Text('Пока нет записей', style: theme.textTheme.titleLarge),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Нажмите кнопку "+" чтобы добавить первую запись',
+                              style: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 90),
+                        itemCount: _rows.length,
+                        itemBuilder: (context, index) {
+                          final row = _rows[index];
+                          final titleField = _guessTitleField(row);
+                          final subtitle = _guessSubtitle(row);
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            elevation: 1,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () => _showEditBottomSheet(initial: row),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            row[titleField]?.toString() ?? '(без названия)',
+                                            style: theme.textTheme.titleMedium
+                                                ?.copyWith(fontWeight: FontWeight.w600),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (subtitle.isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              subtitle,
+                                              style: theme.textTheme.bodyMedium?.copyWith(
+                                                color: colorScheme.onSurfaceVariant,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'ID: ${(row['id']?.toString() ?? '').substring(0, row['id'] != null ? 8 : 0)}...',
+                                            style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      children: [
+                                        // Кнопка открытия файла ТОЛЬКО для stage_documents
+                                        if (widget.tableName == 'stage_documents' && row['file_url'] != null)
+                                          IconButton(
+                                            icon: const Icon(Icons.open_in_new_rounded),
+                                            onPressed: () => _openOrDownloadDocument(row, open: true),
+                                          ),
+                                        IconButton(
+                                          icon: Icon(Icons.delete_outline_rounded, color: colorScheme.error),
+                                          onPressed: () => _confirmDelete(row['id'] as String?),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                    ),
-                  );
-                },
-              ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showEditBottomSheet(),
@@ -413,8 +394,45 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
     );
   }
 
-  void _confirmDelete(dynamic id) {
-    if (id == null) return;
+  Future<void> _openOrDownloadDocument(Map<String, dynamic> doc, {bool open = true}) async {
+    final url = doc['file_url'] as String?;
+    final name = doc['name'] as String? ?? 'document';
+
+    if (url == null || url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Нет ссылки на файл')),
+      );
+      return;
+    }
+
+    try {
+      final dio = Dio();
+      final dir = await getTemporaryDirectory();
+      final path = '${dir.path}/$name';
+
+      await dio.download(url, path);
+
+      if (open) {
+        final result = await OpenFilex.open(path);
+        if (result.type != ResultType.done) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Не удалось открыть: ${result.message}')),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Файл сохранён')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _confirmDelete(String? id) {
+    if (id == null || id.isEmpty) return;
 
     showDialog(
       context: context,
@@ -422,14 +440,11 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
         title: const Text('Удалить запись?'),
         content: const Text('Это действие нельзя отменить'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Отмена'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              _delete(id.toString());
+              _delete(id);
             },
             child: Text(
               'Удалить',
@@ -456,7 +471,6 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
       if (row.containsKey(field)) return field;
     }
 
-    // Если ничего не нашли — первое не-id поле
     return row.keys.firstWhere((k) => k != 'id', orElse: () => 'id');
   }
 
@@ -472,7 +486,8 @@ class _DatabaseExplorerState extends State<DatabaseExplorer> {
           key.contains('type') ||
           key.contains('progress') ||
           key.contains('date') ||
-          key.contains('phone')) {
+          key.contains('phone') ||
+          key.contains('uploaded_at')) {
         parts.add(value);
       }
 

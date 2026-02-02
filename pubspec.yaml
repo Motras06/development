@@ -23,6 +23,7 @@ dependencies:
   open_filex: ^4.7.0
   permission_handler: ^12.0.1
   path_provider: ^2.1.5
+  supabase: ^2.10.2
 
 dev_dependencies:
   flutter_test:

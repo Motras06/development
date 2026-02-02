@@ -310,16 +310,6 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
 
             const SizedBox(height: 40),
-
-            const Divider(),
-
-            const SizedBox(height: 16),
-
-            Text(
-              'Приложение для управления проектами\nВерсия 1.0 • © 2026',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
-            ),
           ],
         ),
       ),

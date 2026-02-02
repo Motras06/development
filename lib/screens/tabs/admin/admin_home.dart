@@ -21,7 +21,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     'project_participants',
     'messages',
     'comments',
-    'technical_documents',
   ];
 
   Future<bool> _isAdmin() async {
@@ -146,7 +145,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       'project_participants' => const Icon(Icons.group_work_rounded),
       'messages' => const Icon(Icons.message_rounded),
       'comments' => const Icon(Icons.comment_rounded),
-      'technical_documents' => const Icon(Icons.description_rounded),
       _ => const Icon(Icons.table_rows_rounded),
     };
   }

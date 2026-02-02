@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-
-final supabase = Supabase.instance.client;
+import '/models/enums.dart';
 
 class ChatAndDocsTab extends StatefulWidget {
   const ChatAndDocsTab({super.key});
@@ -11,9 +11,10 @@ class ChatAndDocsTab extends StatefulWidget {
   State<ChatAndDocsTab> createState() => _ChatAndDocsTabState();
 }
 
-class _ChatAndDocsTabState extends State<ChatAndDocsTab> {
-  final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProviderStateMixin {
+  final supabase = Supabase.instance.client;
+  final _messageController = TextEditingController();
+  final _scrollController = ScrollController();
 
   List<Map<String, dynamic>> _projects = [];
   Map<String, dynamic>? _selectedProject;
@@ -22,11 +23,33 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> {
   String? _currentUserId;
   RealtimeChannel? _channel;
 
+  late AnimationController _animController;
+  late Animation<double> _fadeAnimation;
+
   @override
   void initState() {
     super.initState();
+
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOut,
+    );
+
     _currentUserId = supabase.auth.currentUser?.id;
     _loadUserProjects();
+  }
+
+  @override
+  void dispose() {
+    _channel?.unsubscribe();
+    _messageController.dispose();
+    _scrollController.dispose();
+    _animController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserProjects() async {
@@ -59,6 +82,10 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> {
           _selectedProject = _projects.first;
         }
       });
+
+      if (_selectedProject != null) {
+        _subscribeToChannel();
+      }
     } catch (e) {
       debugPrint('Ошибка загрузки проектов: $e');
     }
@@ -72,7 +99,7 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> {
 
     final projectId = _selectedProject!['id'] as String;
 
-    _channel = supabase.channel('messages:$projectId');
+    _channel = supabase.channel('project-chat:$projectId');
 
     _channel!.onPostgresChanges(
       event: PostgresChangeEvent.insert,
@@ -85,20 +112,14 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> {
       ),
       callback: (payload) {
         final newMessage = payload.newRecord;
-        setState(() {
-          _messages.add(newMessage);
-        });
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
-            _scrollController.animateTo(
-              _scrollController.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          }
-        });
-            },
+        if (newMessage['project_id'] == projectId) {
+          setState(() {
+            _messages.add(newMessage);
+          });
+          _scrollToBottom();
+          _animController.forward(from: 0.0);
+        }
+      },
     );
 
     await _channel!.subscribe();
@@ -121,11 +142,8 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> {
         _messages = List<Map<String, dynamic>>.from(data);
       });
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-      });
+      _scrollToBottom(animate: false);
+      _animController.forward(from: 0.0);
     } catch (e) {
       debugPrint('Ошибка загрузки сообщений: $e');
     }
@@ -144,16 +162,7 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> {
       });
 
       _messageController.clear();
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      _scrollToBottom();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -163,112 +172,135 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> {
     }
   }
 
+  void _scrollToBottom({bool animate = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final pos = _scrollController.position.maxScrollExtent;
+      if (animate) {
+        _scrollController.animateTo(
+          pos,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      } else {
+        _scrollController.jumpTo(pos);
+      }
+    });
+  }
+
+  String _formatTime(String? timestamp) {
+    if (timestamp == null) return '';
+    try {
+      final date = DateTime.parse(timestamp).toLocal();
+      return DateFormat('HH:mm').format(date);
+    } catch (_) {
+      return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_currentUserId == null) {
-      return const Center(child: Text('Не авторизован'));
-    }
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-    return Stack(
-      children: [
-        Scaffold(
-          body: Column(
-            children: [
-              // Выбор проекта
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                  border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _projects.isEmpty
-                          ? const Text(
-                              'Нет доступных проектов',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            )
-                          : DropdownButton<Map<String, dynamic>>(
-                              isExpanded: true,
-                              value: _selectedProject,
-                              hint: const Text('Выберите проект для чата'),
-                              items: _projects.map((p) {
-                                return DropdownMenuItem(
-                                  value: p,
-                                  child: Text(p['name'] as String),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedProject = value;
-                                  _messages = [];
-                                });
-                                _subscribeToChannel();
-                              },
-                            ),
-                    ),
-                  ],
-                ),
+    return Scaffold(
+      body: SafeArea(  // ← SafeArea гарантирует, что контент не уйдёт под системные панели
+        child: Column(
+          children: [
+            // Выбор проекта (Dropdown)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerLow,
+                border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
               ),
+              child: DropdownButton<Map<String, dynamic>>(
+                isExpanded: true,
+                value: _selectedProject,
+                hint: const Text('Выберите проект для чата'),
+                underline: const SizedBox(),
+                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                items: _projects.map((p) {
+                  return DropdownMenuItem(
+                    value: p,
+                    child: Text(p['name'] as String),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedProject = value;
+                    _messages = [];
+                  });
+                  _subscribeToChannel();
+                },
+              ),
+            ),
 
-              // Список сообщений
-              Expanded(
-                child: _selectedProject == null
-                    ? const Center(child: Text('Выберите проект, чтобы увидеть чат'))
-                    : RefreshIndicator(
-                        onRefresh: _loadInitialMessages,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 100), // отступ под панель ввода
-                          itemCount: _messages.length,
-                          itemBuilder: (context, index) {
-                            final msg = _messages[index];
-                            final isMe = msg['sender_id'] == _currentUserId;
-                            final isNotification = msg['is_notification'] == true;
+            // Список сообщений
+            Expanded(
+              child: _selectedProject == null
+                  ? const Center(child: Text('Выберите проект для чата'))
+                  : FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final msg = _messages[index];
+                          final isMe = msg['sender_id'] == _currentUserId;
+                          final isNotification = msg['is_notification'] == true;
+                          final text = msg['text'] as String? ?? '';
+                          final time = _formatTime(msg['created_at'] as String?);
 
-                            final text = msg['text'] as String? ?? '';
-                            final createdAt = msg['created_at'] as String?;
-                            final time = createdAt != null
-                                ? DateFormat('HH:mm').format(DateTime.parse(createdAt))
-                                : '';
-
-                            return FutureBuilder<String>(
-                              future: msg['sender_id'] != null
-                                  ? supabase
-                                      .from('users')
-                                      .select('full_name')
-                                      .eq('id', msg['sender_id'])
-                                      .maybeSingle()
-                                      .then((data) => data?['full_name'] as String? ?? 'Аноним')
-                                  : Future.value('Система'),
-                              builder: (context, snapshot) {
-                                final senderName = snapshot.data ?? 'Аноним';
-
-                                return Align(
-                                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                                  child: Container(
-                                    margin: const EdgeInsets.symmetric(vertical: 4),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: isNotification
-                                          ? Colors.orange.shade100
-                                          : isMe
-                                              ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
-                                              : Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
+                          return GestureDetector(
+                            onLongPress: () {
+                              if (text.isNotEmpty) {
+                                Clipboard.setData(ClipboardData(text: text));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Скопировано')),
+                                );
+                              }
+                            },
+                            child: Align(
+                              alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                                ),
+                                child: Material(
+                                  elevation: isMe ? 1 : 0.5,
+                                  shadowColor: Colors.black.withOpacity(0.12),
+                                  color: isNotification
+                                      ? Colors.orange.shade100
+                                      : isMe
+                                          ? colorScheme.primaryContainer
+                                          : colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: const Radius.circular(20),
+                                    topRight: const Radius.circular(20),
+                                    bottomLeft: Radius.circular(isMe ? 20 : 4),
+                                    bottomRight: Radius.circular(isMe ? 4 : 20),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                     child: Column(
-                                      crossAxisAlignment:
-                                          isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                                       children: [
                                         if (!isMe && !isNotification)
-                                          Text(
-                                            senderName,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                            ),
+                                          FutureBuilder<String>(
+                                            future: supabase
+                                                .from('users')
+                                                .select('full_name')
+                                                .eq('id', msg['sender_id'])
+                                                .maybeSingle()
+                                                .then((data) => data?['full_name'] as String? ?? 'Аноним'),
+                                            builder: (context, snapshot) {
+                                              return Text(
+                                                snapshot.data ?? 'Аноним',
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                              );
+                                            },
                                           ),
                                         Text(
                                           text,
@@ -279,85 +311,70 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> {
                                         const SizedBox(height: 4),
                                         Text(
                                           time,
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.grey.shade600,
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: isMe
+                                                ? colorScheme.onPrimaryContainer.withOpacity(0.7)
+                                                : colorScheme.onSurfaceVariant,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                );
-                              },
-                            );
-                          },
-                        ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-              ),
-            ],
-          ),
-        ),
-
-        // Панель ввода сообщения — всегда внизу
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            padding: EdgeInsets.fromLTRB(
-              12,
-              8,
-              12,
-              8 + MediaQuery.of(context).padding.bottom,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade300)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: _selectedProject == null
-                          ? 'Выберите проект...'
-                          : 'Напишите сообщение...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
-                    enabled: _selectedProject != null,
-                    minLines: 1,
-                    maxLines: 4,
-                    textCapitalization: TextCapitalization.sentences,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(
-                    Icons.send,
-                    color: _selectedProject == null ? Colors.grey : Colors.blue,
-                  ),
-                  onPressed: _selectedProject == null ? null : _sendMessage,
-                ),
-              ],
             ),
-          ),
-        ),
-      ],
-    );
-  }
 
-  @override
-  void dispose() {
-    _channel?.unsubscribe();
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
+            // Панель ввода — теперь внизу, над таббаром
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                border: Border(
+                  top: BorderSide(color: colorScheme.outlineVariant, width: 1),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      minLines: 1,
+                      maxLines: 5,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(
+                        hintText: 'Сообщение...',
+                        filled: true,
+                        fillColor: colorScheme.surfaceContainerHighest,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      ),
+                      onSubmitted: (_) => _sendMessage(),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  FloatingActionButton.small(
+                    onPressed: _sendMessage,
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
+                    elevation: 2,
+                    shape: const CircleBorder(),
+                    child: const Icon(Icons.send_rounded),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

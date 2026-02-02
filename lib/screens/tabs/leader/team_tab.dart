@@ -9,7 +9,7 @@ class TeamTab extends StatefulWidget {
   State<TeamTab> createState() => _TeamTabState();
 }
 
-class _TeamTabState extends State<TeamTab> {
+class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
   final _currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
@@ -19,10 +19,30 @@ class _TeamTabState extends State<TeamTab> {
 
   bool _isLoadingProjects = true;
 
+  late AnimationController _fabAnimationController;
+  late Animation<double> _fabScaleAnimation;
+
   @override
   void initState() {
     super.initState();
     _loadProjects();
+
+    _fabAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _fabScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fabAnimationController, curve: Curves.elasticOut),
+    );
+
+    _fabAnimationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fabAnimationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProjects() async {
@@ -42,11 +62,11 @@ class _TeamTabState extends State<TeamTab> {
         if (_projects.isNotEmpty && _selectedProject == null) {
           _selectedProject = _projects.first;
         }
+        _isLoadingProjects = false;
       });
     } catch (e) {
       debugPrint('Ошибка загрузки проектов: $e');
-    } finally {
-      if (mounted) setState(() => _isLoadingProjects = false);
+      setState(() => _isLoadingProjects = false);
     }
   }
 
@@ -59,61 +79,48 @@ class _TeamTabState extends State<TeamTab> {
     }
 
     final emailController = TextEditingController();
-    ParticipantRole? selectedRole = ParticipantRole.worker;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Пригласить участника'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email участника',
-                  hintText: 'example@email.com',
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 20),
-              DropdownButtonFormField<ParticipantRole>(
-                value: selectedRole,
-                decoration: const InputDecoration(
-                  labelText: 'Роль',
-                  border: OutlineInputBorder(),
-                ),
-                items: ParticipantRole.values.map((role) {
-                  return DropdownMenuItem(
-                    value: role,
-                    child: Text(_roleDisplayName(role)),
-                  );
-                }).toList(),
-                onChanged: (value) => setDialogState(() => selectedRole = value),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Пригласить участника', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: emailController,
+          decoration: InputDecoration(
+            labelText: 'Email участника',
+            hintText: 'example@email.com',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            prefixIcon: const Icon(Icons.email_outlined),
+            filled: true,
+            fillColor: Colors.grey.withOpacity(0.08),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Отмена'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Пригласить'),
-            ),
-          ],
+          keyboardType: TextInputType.emailAddress,
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Пригласить'),
+          ),
+        ],
       ),
     );
 
     if (confirmed != true) return;
 
     final email = emailController.text.trim();
-    if (email.isEmpty || selectedRole == null) {
+    if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните все поля')),
+        const SnackBar(content: Text('Введите email')),
       );
       return;
     }
@@ -127,7 +134,7 @@ class _TeamTabState extends State<TeamTab> {
 
       if (userData == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Пользователь не найден')),
+          const SnackBar(content: Text('Пользователь с таким email не найден')),
         );
         return;
       }
@@ -150,84 +157,28 @@ class _TeamTabState extends State<TeamTab> {
 
       if (existing != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Участник уже в проекте')),
+          const SnackBar(content: Text('Этот участник уже в проекте')),
         );
         return;
       }
 
+      const defaultRole = ParticipantRole.worker;
+
       await _supabase.from('project_participants').insert({
         'project_id': _selectedProject!['id'],
         'user_id': targetUserId,
-        'role': selectedRole!.name,
+        'role': defaultRole.name,
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Участник успешно приглашён!')),
+        const SnackBar(
+          content: Text('Участник успешно приглашён!'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка приглашения: $e')),
-      );
-    }
-  }
-
-  Future<void> _changeRole(Map<String, dynamic> participant) async {
-    final participantUserId = participant['user_id'] as String?;
-
-    if (participantUserId == _currentUserId) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Нельзя изменить свою роль')),
-      );
-      return;
-    }
-
-    ParticipantRole currentRole = ParticipantRole.values.firstWhere(
-      (r) => r.name == (participant['role'] as String),
-      orElse: () => ParticipantRole.worker,
-    );
-
-    final newRole = await showDialog<ParticipantRole?>(
-      context: context,
-      builder: (context) {
-        ParticipantRole? temp = currentRole;
-        return StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            title: const Text('Изменить роль'),
-            content: DropdownButton<ParticipantRole>(
-              value: temp,
-              isExpanded: true,
-              items: ParticipantRole.values.map((r) => DropdownMenuItem(
-                    value: r,
-                    child: Text(_roleDisplayName(r)),
-                  )).toList(),
-              onChanged: (v) => setState(() => temp = v),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
-              TextButton(
-                onPressed: () => Navigator.pop(context, temp),
-                child: const Text('Сохранить'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (newRole == null || newRole == currentRole) return;
-
-    try {
-      await _supabase
-          .from('project_participants')
-          .update({'role': newRole.name})
-          .eq('id', participant['id']);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Роль обновлена')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
       );
     }
   }
@@ -242,8 +193,7 @@ class _TeamTabState extends State<TeamTab> {
       return;
     }
 
-    final user = participant['users'] as Map<String, dynamic>?;
-    final name = user?['full_name'] as String? ?? 'участника';
+    final name = participant['full_name'] as String? ?? 'участника';
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -281,134 +231,294 @@ class _TeamTabState extends State<TeamTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Scaffold(
-          body: Column(
-            children: [
-              // Выбор проекта
-              if (_isLoadingProjects)
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (_projects.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: Text('У вас пока нет проектов')),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: DropdownButton<Map<String, dynamic>>(
-                    isExpanded: true,
-                    value: _selectedProject,
-                    hint: const Text('Выберите проект'),
-                    items: _projects.map((p) => DropdownMenuItem(
-                          value: p,
-                          child: Text(p['name'] as String),
-                        )).toList(),
-                    onChanged: (v) => setState(() => _selectedProject = v),
-                  ),
-                ),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-              // Поиск
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-                  decoration: InputDecoration(
-                    labelText: 'Поиск по имени, email, телефону...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: Colors.grey.withOpacity(0.08),
+    return Scaffold(
+      extendBody: true,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.primary.withOpacity(0.05),
+              colorScheme.surface,
+            ],
+          ),
+        ),
+        child: Column(
+          children: [
+            // Дропдаун проектов
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  color: colorScheme.surface.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: _selectedProject != null
+                        ? colorScheme.primary
+                        : colorScheme.outline.withOpacity(0.4),
+                    width: _selectedProject != null ? 2.5 : 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _selectedProject != null
+                          ? colorScheme.primary.withOpacity(0.25)
+                          : Colors.black.withOpacity(0.05),
+                      blurRadius: _selectedProject != null ? 16 : 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<Map<String, dynamic>?>(
+                    hint: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.folder_special_outlined,
+                            color: colorScheme.onSurface.withOpacity(0.6),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              'Выберите проект',
+                              style: TextStyle(
+                                color: colorScheme.onSurface.withOpacity(0.7),
+                                fontSize: 16,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    value: _selectedProject,
+                    isExpanded: true,
+                    icon: Padding(
+                      padding: const EdgeInsets.only(right: 20),
+                      child: AnimatedRotation(
+                        turns: _selectedProject != null ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: _selectedProject != null
+                              ? colorScheme.primary
+                              : colorScheme.onSurface.withOpacity(0.6),
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                    dropdownColor: colorScheme.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    elevation: 8,
+                    items: _projects.map((project) {
+                      final String name = project['name'] as String;
+
+                      return DropdownMenuItem<Map<String, dynamic>?>(
+                        value: project,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.folder_special,
+                                color: colorScheme.primary,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: _selectedProject == project
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (_selectedProject == project)
+                                Icon(
+                                  Icons.check_circle,
+                                  color: colorScheme.primary,
+                                  size: 20,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (v) => setState(() => _selectedProject = v),
+                    selectedItemBuilder: (context) {
+                      return _projects.map<Widget>((project) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.folder_special,
+                                color: colorScheme.primary,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  project['name'],
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList();
+                    },
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+            ),
 
-              Expanded(
-                child: _selectedProject == null
-                    ? const Center(child: Text('Выберите проект для просмотра команды'))
-                    : StreamBuilder<List<Map<String, dynamic>>>(
-                        stream: _supabase
-                            .from('project_participants')
-                            .stream(primaryKey: ['id'])
-                            .eq('project_id', _selectedProject!['id'])
-                            .order('joined_at'),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
+            // Поиск
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  TextField(
+                    onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                    decoration: InputDecoration(
+                      labelText: 'Поиск по имени, email, телефону...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.grey.withOpacity(0.08),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
 
-                          if (snapshot.hasError) {
-                            return Center(child: Text('Ошибка загрузки: ${snapshot.error}'));
-                          }
+            Expanded(
+              child: _selectedProject == null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.group_off, size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                          const SizedBox(height: 16),
+                          Text('Выберите проект', style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurface.withOpacity(0.6))),
+                          const SizedBox(height: 8),
+                          Text('Чтобы увидеть команду', style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.5))),
+                        ],
+                      ),
+                    )
+                  : StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: _supabase
+                          .from('project_participants_with_users')
+                          .stream(primaryKey: ['id'])
+                          .eq('project_id', _selectedProject!['id'])
+                          .order('joined_at'),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
 
-                          final participants = snapshot.data ?? [];
+                        if (snapshot.hasError) {
+                          return Center(child: Text('Ошибка загрузки: ${snapshot.error}'));
+                        }
 
-                          // Исключаем себя из списка
-                          final filtered = participants
-                              .where((p) => p['user_id'] != _currentUserId)
-                              .where((p) {
-                            final u = p['users'] as Map<String, dynamic>?;
-                            final n = (u?['full_name'] as String?)?.toLowerCase() ?? '';
-                            final e = (u?['email'] as String?)?.toLowerCase() ?? '';
-                            final ph = (u?['phone'] as String?)?.toLowerCase() ?? '';
-                            return n.contains(_searchQuery) ||
-                                e.contains(_searchQuery) ||
-                                ph.contains(_searchQuery);
-                          }).toList();
+                        final participants = snapshot.data ?? [];
 
-                          if (filtered.isEmpty) {
-                            return const Center(child: Text('Участники не найдены'));
-                          }
+                        final filtered = participants
+                            .where((p) => p['user_id'] != _currentUserId)
+                            .where((p) {
+                              final n = (p['full_name'] as String?)?.toLowerCase() ?? '';
+                              final e = (p['email'] as String?)?.toLowerCase() ?? '';
+                              final ph = (p['phone'] as String?)?.toLowerCase() ?? '';
 
-                          return ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
-                            itemCount: filtered.length,
-                            itemBuilder: (context, index) {
-                              final p = filtered[index];
-                              final u = p['users'] as Map<String, dynamic>?;
-                              final role = ParticipantRole.values.firstWhere(
-                                (r) => r.name == (p['role'] as String),
-                                orElse: () => ParticipantRole.worker,
-                              );
+                              final searchMatch = n.contains(_searchQuery) ||
+                                  e.contains(_searchQuery) ||
+                                  ph.contains(_searchQuery);
 
-                              final name = u?['full_name'] as String? ?? 'Без имени';
-                              final email = u?['email'] as String? ?? '—';
-                              final phone = u?['phone'] as String?;
+                              return searchMatch;
+                            }).toList();
 
-                              return Card(
-                                margin: const EdgeInsets.symmetric(vertical: 4),
+                        if (filtered.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.group_off, size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                                const SizedBox(height: 16),
+                                Text('Участники не найдены', style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurface.withOpacity(0.6))),
+                                const SizedBox(height: 8),
+                                Text('Попробуйте изменить поиск или пригласить нового', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.5))),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final p = filtered[index];
+
+                            final name = p['full_name'] as String? ?? 'Без имени';
+                            final email = p['email'] as String? ?? '—';
+                            final phone = p['phone'] as String?;
+
+                            return AnimatedSlide(
+                              duration: Duration(milliseconds: 300 + index * 50),
+                              offset: Offset(0, index * 0.05),
+                              curve: Curves.easeOutCubic,
+                              child: Card(
+                                margin: const EdgeInsets.symmetric(vertical: 6),
+                                elevation: 3,
+                                shadowColor: Colors.black.withOpacity(0.12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
                                 child: ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: _getRoleColor(role),
+                                    backgroundColor: colorScheme.primary,
+                                    radius: 28,
                                     child: Text(
-                                      name.isNotEmpty ? name[0] : '?',
-                                      style: const TextStyle(color: Colors.white),
+                                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                                     ),
                                   ),
-                                  title: Text(name),
+                                  title: Text(
+                                    name,
+                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  ),
                                   subtitle: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(email, style: const TextStyle(fontSize: 13)),
-                                      if (phone != null) Text(phone, style: const TextStyle(fontSize: 13)),
-                                      Text(
-                                        'Роль: ${_roleDisplayName(role)}',
-                                        style: TextStyle(color: _getRoleColor(role), fontSize: 13),
-                                      ),
+                                      if (email != '—') Text(email, style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withOpacity(0.75))),
+                                      if (phone != null) Text(phone, style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withOpacity(0.75))),
                                     ],
                                   ),
                                   trailing: PopupMenuButton<String>(
+                                    icon: Icon(Icons.more_vert, color: colorScheme.onSurface.withOpacity(0.6)),
                                     onSelected: (v) {
-                                      if (v == 'change_role') _changeRole(p);
                                       if (v == 'remove') _removeMember(p);
                                     },
                                     itemBuilder: (context) => [
-                                      const PopupMenuItem(value: 'change_role', child: Text('Изменить роль')),
                                       const PopupMenuItem(
                                         value: 'remove',
                                         child: Text('Удалить из проекта', style: TextStyle(color: Colors.red)),
@@ -416,47 +526,33 @@ class _TeamTabState extends State<TeamTab> {
                                     ],
                                   ),
                                 ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
+      ),
 
-        // Кнопка «Пригласить» поверх всего, всегда видна
-        Positioned(
-          right: 16,
-          bottom: 16 + MediaQuery.of(context).padding.bottom,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80),
+        child: ScaleTransition(
+          scale: _fabScaleAnimation,
           child: FloatingActionButton.extended(
-            heroTag: 'invite_team_fab',
             onPressed: _selectedProject == null ? null : _inviteMember,
             label: const Text('Пригласить'),
             icon: const Icon(Icons.person_add_alt_1_rounded),
-            backgroundColor: _selectedProject == null ? Colors.grey : null,
+            backgroundColor: _selectedProject == null ? Colors.grey : colorScheme.primary,
+            foregroundColor: Colors.white,
+            elevation: 12,
+            tooltip: 'Пригласить участника',
           ),
         ),
-      ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
-  }
-
-  Color _getRoleColor(ParticipantRole role) {
-    return switch (role) {
-      ParticipantRole.leader => Colors.blue.shade700,
-      ParticipantRole.worker => Colors.green.shade600,
-      ParticipantRole.client => Colors.orange.shade700,
-      ParticipantRole.admin => Colors.purple.shade600,
-    };
-  }
-
-  String _roleDisplayName(ParticipantRole role) {
-    return switch (role) {
-      ParticipantRole.leader => 'Руководитель',
-      ParticipantRole.worker => 'Работник',
-      ParticipantRole.client => 'Заказчик',
-      ParticipantRole.admin => 'Администратор',
-    };
   }
 }

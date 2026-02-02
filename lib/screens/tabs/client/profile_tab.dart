@@ -309,18 +309,6 @@ class _ProfileTabState extends State<ProfileTab> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
-
-            const SizedBox(height: 48),
-
-            const Divider(),
-
-            const SizedBox(height: 24),
-
-            Text(
-              'Панель управления проектами\nВерсия 1.0 • © 2026',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
-            ),
           ],
         ),
       ),

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
 import '/models/enums.dart';
+
+final supabase = Supabase.instance.client;
 
 class StagesTab extends StatefulWidget {
   const StagesTab({super.key});
@@ -11,18 +16,11 @@ class StagesTab extends StatefulWidget {
 }
 
 class _StagesTabState extends State<StagesTab> {
-  final _supabase = Supabase.instance.client;
-  final userId = Supabase.instance.client.auth.currentUser?.id;
+  final userId = supabase.auth.currentUser?.id;
 
   List<Map<String, dynamic>> _projects = [];
   Map<String, dynamic>? _selectedProject;
   String _searchQuery = '';
-
-  // Кэш прогресса этапов
-  final Map<String, double> _stageProgressCache = {};
-
-  // Кэш документов по project_id
-  final Map<String, List<Map<String, dynamic>>> _documentsCache = {};
 
   @override
   void initState() {
@@ -34,10 +32,10 @@ class _StagesTabState extends State<StagesTab> {
     if (userId == null) return;
 
     try {
-      final participantData = await _supabase
+      final participantData = await supabase
           .from('project_participants')
           .select(
-            'project_id, projects(id, name, description, start_date, end_date, status, manual_progress)',
+            'project_id, projects(id, name, description, start_date, end_date, status)',
           )
           .eq('user_id', userId!);
 
@@ -56,47 +54,271 @@ class _StagesTabState extends State<StagesTab> {
     }
   }
 
-  Future<void> _addComment(String stageId) async {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Заголовок + выбор проекта
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.timeline_rounded, color: colorScheme.primary, size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Этапы проектов',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Dropdown проектов
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                color: colorScheme.surfaceContainerHighest,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: DropdownButton<Map<String, dynamic>?>(
+                    isExpanded: true,
+                    value: _selectedProject,
+                    hint: Text(
+                      'Выберите проект',
+                      style: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                    underline: const SizedBox(),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded, color: colorScheme.primary),
+                    items: _projects.map((project) {
+                      return DropdownMenuItem(
+                        value: project,
+                        child: Text(
+                          project['name'] as String,
+                          style: theme.textTheme.bodyLarge,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) => setState(() => _selectedProject = value),
+                  ),
+                ),
+              ),
+            ),
+
+            // Поиск
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextField(
+                onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                decoration: InputDecoration(
+                  labelText: 'Поиск по названию этапа',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: colorScheme.surfaceContainerHighest,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            // Список этапов
+            Expanded(
+              child: _selectedProject == null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.folder_open_rounded, size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Выберите проект',
+                            style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Чтобы увидеть этапы',
+                            style: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    )
+                  : StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: supabase
+                          .from('stages')
+                          .stream(primaryKey: ['id'])
+                          .eq('project_id', _selectedProject!['id'])
+                          .order('created_at', ascending: true),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(child: Text('Ошибка: ${snapshot.error}'));
+                        }
+
+                        final stages = snapshot.data ?? [];
+
+                        final filtered = stages.where((s) {
+                          final name = (s['name'] as String?)?.toLowerCase() ?? '';
+                          return name.contains(_searchQuery);
+                        }).toList();
+
+                        if (filtered.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off_rounded, size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Нет этапов',
+                                  style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final stage = filtered[index];
+                            return AnimatedOpacity(
+                              opacity: 1.0,
+                              duration: Duration(milliseconds: 300 + index * 100),
+                              child: StageCard(
+                                stage: stage,
+                                onRefresh: () => setState(() {}),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Красивая карточка этапа
+class StageCard extends StatefulWidget {
+  final Map<String, dynamic> stage;
+  final VoidCallback? onRefresh;
+
+  const StageCard({super.key, required this.stage, this.onRefresh});
+
+  @override
+  State<StageCard> createState() => _StageCardState();
+}
+
+class _StageCardState extends State<StageCard> {
+  List<Map<String, dynamic>> _documents = [];
+  List<Map<String, dynamic>> _comments = [];
+  bool _isLoading = true;
+
+  StageStatus get status => StageStatus.values.firstWhere(
+        (e) => e.name == (widget.stage['status'] as String? ?? 'planned'),
+        orElse: () => StageStatus.planned,
+      );
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final docsRes = await supabase
+          .from('stage_documents')
+          .select()
+          .eq('stage_id', widget.stage['id'])
+          .order('uploaded_at', ascending: false);
+
+      final commRes = await supabase
+          .from('comments')
+          .select('*, users!user_id(full_name)')
+          .eq('entity_type', 'stage')
+          .eq('entity_id', widget.stage['id'])
+          .order('created_at', ascending: false);
+
+      if (mounted) {
+        setState(() {
+          _documents = List<Map<String, dynamic>>.from(docsRes);
+          _comments = List<Map<String, dynamic>>.from(commRes);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Ошибка загрузки: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _addComment() async {
     final commentController = TextEditingController();
 
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Комментарий к этапу'),
+        title: const Text('Новый комментарий'),
         content: TextField(
           controller: commentController,
-          decoration: const InputDecoration(hintText: 'Ваш комментарий...'),
+          decoration: const InputDecoration(hintText: 'Что вы думаете об этом этапе?'),
           maxLines: 5,
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
           TextButton(
             onPressed: () async {
               final text = commentController.text.trim();
               if (text.isEmpty) return;
 
               try {
-                await _supabase.from('comments').insert({
+                await supabase.from('comments').insert({
                   'entity_type': 'stage',
-                  'entity_id': stageId,
-                  'user_id': userId,
+                  'entity_id': widget.stage['id'],
+                  'user_id': supabase.auth.currentUser?.id,
                   'text': text,
                 });
 
                 if (mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Комментарий добавлен')),
+                    SnackBar(
+                      content: const Text('Комментарий добавлен'),
+                      backgroundColor: Colors.green.shade700,
+                    ),
                   );
+                  _loadData();
+                  widget.onRefresh?.call();
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка: $e')),
+                  );
                 }
               }
             },
@@ -107,74 +329,51 @@ class _StagesTabState extends State<StagesTab> {
     );
   }
 
-  Future<double> _calculateStageProgress(String stageId) async {
-    if (_stageProgressCache.containsKey(stageId))
-      return _stageProgressCache[stageId]!;
+  Future<void> _openDocument(Map<String, dynamic> doc) async {
+    final url = doc['file_url'] as String?;
+    if (url == null) return;
 
     try {
-      final works = await _supabase
-          .from('works')
-          .select('status')
-          .eq('stage_id', stageId);
-      if (works.isEmpty) return 0.0;
+      final dio = Dio();
+      final fileName = doc['name'] ?? 'file_${DateTime.now().millisecondsSinceEpoch}';
 
-      final completed = works
-          .where((w) => w['status'] == WorkStatus.done.name)
-          .length;
-      final progress = completed / works.length;
+      final directory = await getDownloadsDirectory();
+      if (directory == null) throw Exception('Не удалось получить директорию Downloads');
 
-      _stageProgressCache[stageId] = progress;
-      return progress;
+      final savePath = '${directory.path}/$fileName';
+
+      await dio.download(url, savePath);
+
+      final openResult = await OpenFilex.open(savePath);
+
+      if (openResult.type != ResultType.done && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось открыть: ${openResult.message}')),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Файл скачан в Downloads: $fileName')),
+        );
+      }
     } catch (e) {
-      debugPrint('Ошибка расчёта прогресса: $e');
-      return 0.0;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _loadDocuments(String projectId) async {
-    if (_documentsCache.containsKey(projectId))
-      return _documentsCache[projectId]!;
-
-    try {
-      final docs = await _supabase
-          .from('technical_documents')
-          .select()
-          .eq('project_id', projectId)
-          .order('uploaded_at', ascending: false);
-
-      _documentsCache[projectId] = List<Map<String, dynamic>>.from(docs);
-      return _documentsCache[projectId]!;
-    } catch (e) {
-      debugPrint('Ошибка загрузки документов: $e');
-      return [];
-    }
-  }
-
-  // Открытие/скачивание файла — используется в карточке
-  Future<void> _openDocument(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось открыть файл')),
+          SnackBar(content: Text('Ошибка скачивания: $e')),
         );
       }
     }
   }
 
-  // Иконка файла — используется в карточке
   IconData _getFileIcon(String? fileName) {
-    if (fileName == null) return Icons.insert_drive_file;
+    if (fileName == null) return Icons.insert_drive_file_rounded;
     final ext = fileName.split('.').last.toLowerCase();
     return switch (ext) {
-      'pdf' => Icons.picture_as_pdf,
-      'doc' || 'docx' => Icons.description,
-      'xls' || 'xlsx' => Icons.table_chart,
-      'png' || 'jpg' || 'jpeg' || 'gif' => Icons.image,
-      'zip' || 'rar' => Icons.archive,
-      _ => Icons.insert_drive_file,
+      'pdf' => Icons.picture_as_pdf_rounded,
+      'doc' || 'docx' => Icons.description_rounded,
+      'xls' || 'xlsx' => Icons.table_chart_rounded,
+      'png' || 'jpg' || 'jpeg' || 'gif' => Icons.image_rounded,
+      'zip' || 'rar' => Icons.archive_rounded,
+      _ => Icons.insert_drive_file_rounded,
     };
   }
 
@@ -185,359 +384,204 @@ class _StagesTabState extends State<StagesTab> {
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
   }
 
-  Color _getStatusColor(StageStatus status) {
-    return switch (status) {
-      StageStatus.planned => Colors.grey,
-      StageStatus.in_progress => Colors.blue,
-      StageStatus.paused => Colors.orange,
-      StageStatus.completed => Colors.green,
-    };
-  }
+  Widget _buildResources(String title, List<dynamic>? items) {
+    if (items == null || items.isEmpty) return const SizedBox.shrink();
 
-  Widget _buildResourcesSection(String title, List<dynamic> resources) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        const SizedBox(height: 8),
+        ...items.map(
+          (r) => Padding(
+            padding: const EdgeInsets.only(left: 16, bottom: 6),
+            child: Row(
+              children: [
+                Icon(Icons.circle, size: 8, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${r['name']} ${r['quantity'] != null ? ' — ${r['quantity']} ${r['unit'] ?? ''}' : ''}',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          ...resources.map((res) {
-            final name = res['name'] as String? ?? 'Без названия';
-            final quantity = res['quantity'] as num?;
-            final unit = res['unit'] as String? ?? '';
-            return Padding(
-              padding: const EdgeInsets.only(left: 12, bottom: 4),
-              child: Text(
-                '• $name${quantity != null ? " — $quantity $unit" : ""}',
-                style: TextStyle(fontSize: 14, color: Colors.grey[800]),
-              ),
-            );
-          }),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+      ],
     );
   }
+
+  Color _statusColor(StageStatus s) => switch (s) {
+        StageStatus.planned => Colors.grey.shade600,
+        StageStatus.in_progress => Colors.blue.shade600,
+        StageStatus.paused => Colors.orange.shade700,
+        StageStatus.completed => Colors.green.shade700,
+      };
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      body: Column(
+    final name = widget.stage['name'] as String? ?? 'Без названия';
+    final desc = widget.stage['description'] as String?;
+    final start = widget.stage['start_date'] as String?;
+    final end = widget.stage['end_date'] as String?;
+    final matRes = widget.stage['material_resources'] as List<dynamic>?;
+    final nonMatRes = widget.stage['non_material_resources'] as List<dynamic>?;
+
+    final color = _statusColor(status);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      elevation: 4,
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: color,
+          radius: 28,
+          child: Text(
+            status.name[0].toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+        ),
+        title: Text(
+          name,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        subtitle: Text(
+          '${start ?? '—'} → ${end ?? '—'}',
+          style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+        ),
+        trailing: Icon(
+          Icons.keyboard_arrow_down_rounded,
+          color: colorScheme.primary,
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Выбор проекта
-          if (_projects.isNotEmpty)
+          if (desc != null && desc.isNotEmpty) ...[
             Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: DropdownButton<Map<String, dynamic>?>(
-                isExpanded: true,
-                hint: const Text('Выберите проект'),
-                value: _selectedProject,
-                items: _projects.map((project) {
-                  return DropdownMenuItem(
-                    value: project,
-                    child: Text(project['name'] as String),
-                  );
-                }).toList(),
-                onChanged: (value) => setState(() => _selectedProject = value),
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(
+                desc,
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
               ),
             ),
+          ],
 
-          // Поиск
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: TextField(
-              onChanged: (value) =>
-                  setState(() => _searchQuery = value.toLowerCase()),
-              decoration: InputDecoration(
-                labelText: 'Поиск по названию этапа',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade100,
-              ),
+          _buildResources('Материалы', matRes),
+          _buildResources('Нематериальные', nonMatRes),
+
+          const Divider(height: 32, thickness: 1),
+
+          // Документы
+          ListTile(
+            leading: Icon(Icons.folder_rounded, color: colorScheme.primary),
+            title: Text(
+              'Документы (${_documents.length})',
+              style: theme.textTheme.titleMedium,
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // Список этапов
-          Expanded(
-            child: _selectedProject == null
-                ? const Center(
-                    child: Text('Выберите проект для просмотра этапов'),
+            trailing: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: _supabase
-                        .from('stages')
-                        .stream(primaryKey: ['id'])
-                        .eq('project_id', _selectedProject!['id'])
-                        .order('created_at', ascending: true),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      if (snapshot.hasError) {
-                        return Center(child: Text('Ошибка: ${snapshot.error}'));
-                      }
-
-                      final stages = snapshot.data ?? [];
-
-                      final filtered = stages.where((s) {
-                        final name =
-                            (s['name'] as String?)?.toLowerCase() ?? '';
-                        return name.contains(_searchQuery);
-                      }).toList();
-
-                      if (filtered.isEmpty) {
-                        return const Center(
-                          child: Text('Нет этапов или ничего не найдено'),
-                        );
-                      }
-
-                      return ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          final stage = filtered[index];
-                          final name =
-                              stage['name'] as String? ?? 'Без названия';
-                          final description = stage['description'] as String?;
-                          final statusStr =
-                              stage['status'] as String? ?? 'planned';
-                          final start = stage['start_date'] as String?;
-                          final end = stage['end_date'] as String?;
-                          final material =
-                              stage['material_resources'] as List<dynamic>? ??
-                              [];
-                          final nonMaterial =
-                              stage['non_material_resources']
-                                  as List<dynamic>? ??
-                              [];
-
-                          final status = StageStatus.values.firstWhere(
-                            (e) => e.name == statusStr,
-                            orElse: () => StageStatus.planned,
-                          );
-
-                          return FutureBuilder<double>(
-                            future: _calculateStageProgress(
-                              stage['id'] as String,
-                            ),
-                            builder: (context, progressSnapshot) {
-                              final progress = progressSnapshot.data ?? 0.0;
-                              final progressColor = progress < 0.3
-                                  ? Colors.red
-                                  : progress < 0.7
-                                  ? Colors.orange
-                                  : Colors.green;
-
-                              return FutureBuilder<List<Map<String, dynamic>>>(
-                                future: _loadDocuments(
-                                  _selectedProject!['id'] as String,
-                                ),
-                                builder: (context, docsSnapshot) {
-                                  final documents = docsSnapshot.data ?? [];
-
-                                  return Card(
-                                    margin: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    elevation: 3,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: ExpansionTile(
-                                      leading: CircleAvatar(
-                                        backgroundColor: _getStatusColor(
-                                          status,
-                                        ),
-                                        radius: 24,
-                                        child: Text(
-                                          status.name[0].toUpperCase(),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                          ),
-                                        ),
-                                      ),
-                                      title: Text(
-                                        name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18,
-                                        ),
-                                      ),
-                                      subtitle: Text(
-                                        '${start ?? 'Не указана'} — ${end ?? 'Не указана'}',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey[700],
-                                        ),
-                                      ),
-                                      trailing: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text('${(progress * 100).toInt()}%'),
-                                          const SizedBox(height: 4),
-                                          SizedBox(
-                                            width: 30,
-                                            height: 30,
-                                            child: CircularProgressIndicator(
-                                              value: progress,
-                                              strokeWidth: 5,
-                                              backgroundColor: Colors.grey[300],
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                    progressColor,
-                                                  ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      children: [
-                                        if (description != null &&
-                                            description.isNotEmpty)
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 8,
-                                            ),
-                                            child: Text(
-                                              description,
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey[800],
-                                              ),
-                                            ),
-                                          ),
-
-                                        if (material.isNotEmpty)
-                                          _buildResourcesSection(
-                                            'Материальные ресурсы',
-                                            material,
-                                          ),
-
-                                        if (nonMaterial.isNotEmpty)
-                                          _buildResourcesSection(
-                                            'Нематериальные ресурсы',
-                                            nonMaterial,
-                                          ),
-
-                                        // Вот здесь настоящие документы — кликабельные
-                                        if (documents.isNotEmpty) ...[
-                                          const Divider(height: 24),
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.folder_outlined,
-                                                  color: Colors.blue,
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  'Документы (${documents.length})',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          ...documents.map((doc) {
-                                            final fileName =
-                                                doc['name'] as String? ??
-                                                'Без имени';
-                                            final uploadedAt =
-                                                doc['uploaded_at'] as String?;
-                                            final url =
-                                                doc['file_url'] as String?;
-
-                                            return ListTile(
-                                              dense: true,
-                                              leading: Icon(
-                                                _getFileIcon(fileName),
-                                              ),
-                                              title: Text(
-                                                fileName,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              subtitle: uploadedAt != null
-                                                  ? Text(
-                                                      'Загружено: ${_formatDate(uploadedAt)}',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: Colors.grey[600],
-                                                      ),
-                                                    )
-                                                  : null,
-                                              trailing: const Icon(
-                                                Icons.download,
-                                                size: 20,
-                                                color: Colors.blue,
-                                              ),
-                                              onTap: url != null
-                                                  ? () => _openDocument(url)
-                                                  : null,
-                                            );
-                                          }),
-                                        ],
-
-                                        const SizedBox(height: 12),
-
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
-                                          ),
-                                          child: ElevatedButton.icon(
-                                            onPressed: () => _addComment(
-                                              stage['id'] as String,
-                                            ),
-                                            icon: const Icon(
-                                              Icons.comment,
-                                              size: 20,
-                                            ),
-                                            label: const Text(
-                                              'Оставить комментарий',
-                                            ),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: colorScheme
-                                                  .primary
-                                                  .withOpacity(0.1),
-                                              foregroundColor:
-                                                  colorScheme.primary,
-                                              elevation: 0,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
+                : null,
           ),
+          if (_documents.isNotEmpty)
+            ..._documents.map(
+              (doc) => ListTile(
+                dense: true,
+                leading: Icon(_getFileIcon(doc['name'] as String?), color: colorScheme.primary),
+                title: Text(
+                  doc['name'] ?? 'Без имени',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  _formatDate(doc['uploaded_at'] as String?),
+                  style: theme.textTheme.bodySmall,
+                ),
+                trailing: Icon(Icons.download_rounded, size: 20, color: colorScheme.primary),
+                onTap: () => _openDocument(doc),
+              ),
+            )
+          else if (!_isLoading)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text(
+                  'Документов пока нет',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ),
+
+          const Divider(height: 32, thickness: 1),
+
+          // Комментарии
+          ListTile(
+            leading: Icon(Icons.comment_rounded, color: colorScheme.primary),
+            title: Text(
+              'Комментарии (${_comments.length})',
+              style: theme.textTheme.titleMedium,
+            ),
+            trailing: IconButton(
+              icon: Icon(Icons.add_comment_rounded, color: colorScheme.primary),
+              onPressed: _addComment,
+            ),
+          ),
+          if (_comments.isNotEmpty)
+            ..._comments.take(5).map(
+                  (c) => ListTile(
+                    dense: true,
+                    leading: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: colorScheme.primaryContainer,
+                      child: Text(
+                        c['users']?['full_name']?[0] ?? '?',
+                        style: TextStyle(color: colorScheme.onPrimaryContainer),
+                      ),
+                    ),
+                    title: Text(
+                      c['text'] ?? '',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      '${c['users']?['full_name'] ?? 'Аноним'} • ${_formatDate(c['created_at'] as String?)}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                ),
+          if (_comments.length > 5)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: TextButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Полный список — в разработке')),
+                    );
+                  },
+                  child: const Text('Показать все комментарии'),
+                ),
+              ),
+            ),
         ],
       ),
     );
