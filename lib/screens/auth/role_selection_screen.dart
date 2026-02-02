@@ -139,7 +139,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
               children: [
                 const SizedBox(height: 60),
 
-                // Заголовок
                 FadeTransition(
                   opacity: _controller.drive(Tween(begin: 0.0, end: 1.0)),
                   child: Column(
@@ -166,7 +165,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
 
                 const SizedBox(height: 60),
 
-                // Карточки ролей
                 Expanded(
                   child: ListView.builder(
                     physics: const BouncingScrollPhysics(),
@@ -254,7 +252,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
 
                 const SizedBox(height: 40),
 
-                // Кнопка продолжить
                 SizedBox(
                   width: double.infinity,
                   height: 64,

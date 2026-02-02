@@ -17,8 +17,6 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
   Map<String, dynamic>? _selectedProject;
   String _searchQuery = '';
 
-  bool _isLoadingProjects = true;
-
   late AnimationController _fabAnimationController;
   late Animation<double> _fabScaleAnimation;
 
@@ -33,7 +31,10 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
     );
 
     _fabScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fabAnimationController, curve: Curves.elasticOut),
+      CurvedAnimation(
+        parent: _fabAnimationController,
+        curve: Curves.elasticOut,
+      ),
     );
 
     _fabAnimationController.forward();
@@ -48,7 +49,6 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
   Future<void> _loadProjects() async {
     if (_currentUserId == null) return;
 
-    setState(() => _isLoadingProjects = true);
 
     try {
       final data = await _supabase
@@ -62,19 +62,17 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
         if (_projects.isNotEmpty && _selectedProject == null) {
           _selectedProject = _projects.first;
         }
-        _isLoadingProjects = false;
       });
     } catch (e) {
       debugPrint('Ошибка загрузки проектов: $e');
-      setState(() => _isLoadingProjects = false);
     }
   }
 
   Future<void> _inviteMember() async {
     if (_selectedProject == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Сначала выберите проект')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Сначала выберите проект')));
       return;
     }
 
@@ -84,7 +82,10 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Пригласить участника', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Пригласить участника',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: TextField(
           controller: emailController,
           decoration: InputDecoration(
@@ -107,7 +108,9 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             child: const Text('Пригласить'),
           ),
@@ -119,9 +122,9 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
 
     final email = emailController.text.trim();
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите email')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Введите email')));
       return;
     }
 
@@ -177,9 +180,9 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка приглашения: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка приглашения: $e')));
     }
   }
 
@@ -201,7 +204,10 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
         title: const Text('Удалить участника?'),
         content: Text('Вы действительно хотите удалить $name из проекта?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -223,9 +229,9 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
         const SnackBar(content: Text('Участник удалён из проекта')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка удаления: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e')));
     }
   }
 
@@ -249,7 +255,6 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
         ),
         child: Column(
           children: [
-            // Дропдаун проектов
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: AnimatedContainer(
@@ -277,7 +282,10 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<Map<String, dynamic>?>(
                     hint: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
                       child: Row(
                         children: [
                           Icon(
@@ -325,7 +333,10 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
                       return DropdownMenuItem<Map<String, dynamic>?>(
                         value: project,
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
+                          ),
                           child: Row(
                             children: [
                               Icon(
@@ -362,7 +373,10 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
                     selectedItemBuilder: (context) {
                       return _projects.map<Widget>((project) {
                         return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 7,
+                          ),
                           child: Row(
                             children: [
                               Icon(
@@ -391,17 +405,19 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
               ),
             ),
 
-            // Поиск
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: [
                   TextField(
-                    onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                    onChanged: (v) =>
+                        setState(() => _searchQuery = v.toLowerCase()),
                     decoration: InputDecoration(
                       labelText: 'Поиск по имени, email, телефону...',
                       prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       filled: true,
                       fillColor: Colors.grey.withOpacity(0.08),
                     ),
@@ -418,11 +434,25 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.group_off, size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                          Icon(
+                            Icons.group_off,
+                            size: 80,
+                            color: colorScheme.primary.withOpacity(0.4),
+                          ),
                           const SizedBox(height: 16),
-                          Text('Выберите проект', style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurface.withOpacity(0.6))),
+                          Text(
+                            'Выберите проект',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.6),
+                            ),
+                          ),
                           const SizedBox(height: 8),
-                          Text('Чтобы увидеть команду', style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.5))),
+                          Text(
+                            'Чтобы увидеть команду',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                          ),
                         ],
                       ),
                     )
@@ -433,12 +463,17 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
                           .eq('project_id', _selectedProject!['id'])
                           .order('joined_at'),
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
                         }
 
                         if (snapshot.hasError) {
-                          return Center(child: Text('Ошибка загрузки: ${snapshot.error}'));
+                          return Center(
+                            child: Text('Ошибка загрузки: ${snapshot.error}'),
+                          );
                         }
 
                         final participants = snapshot.data ?? [];
@@ -446,27 +481,52 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
                         final filtered = participants
                             .where((p) => p['user_id'] != _currentUserId)
                             .where((p) {
-                              final n = (p['full_name'] as String?)?.toLowerCase() ?? '';
-                              final e = (p['email'] as String?)?.toLowerCase() ?? '';
-                              final ph = (p['phone'] as String?)?.toLowerCase() ?? '';
+                              final n =
+                                  (p['full_name'] as String?)?.toLowerCase() ??
+                                  '';
+                              final e =
+                                  (p['email'] as String?)?.toLowerCase() ?? '';
+                              final ph =
+                                  (p['phone'] as String?)?.toLowerCase() ?? '';
 
-                              final searchMatch = n.contains(_searchQuery) ||
+                              final searchMatch =
+                                  n.contains(_searchQuery) ||
                                   e.contains(_searchQuery) ||
                                   ph.contains(_searchQuery);
 
                               return searchMatch;
-                            }).toList();
+                            })
+                            .toList();
 
                         if (filtered.isEmpty) {
                           return Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.group_off, size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                                Icon(
+                                  Icons.group_off,
+                                  size: 80,
+                                  color: colorScheme.primary.withOpacity(0.4),
+                                ),
                                 const SizedBox(height: 16),
-                                Text('Участники не найдены', style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurface.withOpacity(0.6))),
+                                Text(
+                                  'Участники не найдены',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    color: colorScheme.onSurface.withOpacity(
+                                      0.6,
+                                    ),
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
-                                Text('Попробуйте изменить поиск или пригласить нового', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.5))),
+                                Text(
+                                  'Попробуйте изменить поиск или пригласить нового',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurface.withOpacity(
+                                      0.5,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           );
@@ -478,12 +538,15 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
                           itemBuilder: (context, index) {
                             final p = filtered[index];
 
-                            final name = p['full_name'] as String? ?? 'Без имени';
+                            final name =
+                                p['full_name'] as String? ?? 'Без имени';
                             final email = p['email'] as String? ?? '—';
                             final phone = p['phone'] as String?;
 
                             return AnimatedSlide(
-                              duration: Duration(milliseconds: 300 + index * 50),
+                              duration: Duration(
+                                milliseconds: 300 + index * 50,
+                              ),
                               offset: Offset(0, index * 0.05),
                               curve: Curves.easeOutCubic,
                               child: Card(
@@ -498,30 +561,63 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
                                     backgroundColor: colorScheme.primary,
                                     radius: 28,
                                     child: Text(
-                                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                      name.isNotEmpty
+                                          ? name[0].toUpperCase()
+                                          : '?',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                   title: Text(
                                     name,
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      if (email != '—') Text(email, style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withOpacity(0.75))),
-                                      if (phone != null) Text(phone, style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withOpacity(0.75))),
+                                      if (email != '—')
+                                        Text(
+                                          email,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: colorScheme.onSurface
+                                                .withOpacity(0.75),
+                                          ),
+                                        ),
+                                      if (phone != null)
+                                        Text(
+                                          phone,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: colorScheme.onSurface
+                                                .withOpacity(0.75),
+                                          ),
+                                        ),
                                     ],
                                   ),
                                   trailing: PopupMenuButton<String>(
-                                    icon: Icon(Icons.more_vert, color: colorScheme.onSurface.withOpacity(0.6)),
+                                    icon: Icon(
+                                      Icons.more_vert,
+                                      color: colorScheme.onSurface.withOpacity(
+                                        0.6,
+                                      ),
+                                    ),
                                     onSelected: (v) {
                                       if (v == 'remove') _removeMember(p);
                                     },
                                     itemBuilder: (context) => [
                                       const PopupMenuItem(
                                         value: 'remove',
-                                        child: Text('Удалить из проекта', style: TextStyle(color: Colors.red)),
+                                        child: Text(
+                                          'Удалить из проекта',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -545,7 +641,9 @@ class _TeamTabState extends State<TeamTab> with SingleTickerProviderStateMixin {
             onPressed: _selectedProject == null ? null : _inviteMember,
             label: const Text('Пригласить'),
             icon: const Icon(Icons.person_add_alt_1_rounded),
-            backgroundColor: _selectedProject == null ? Colors.grey : colorScheme.primary,
+            backgroundColor: _selectedProject == null
+                ? Colors.grey
+                : colorScheme.primary,
             foregroundColor: Colors.white,
             elevation: 12,
             tooltip: 'Пригласить участника',

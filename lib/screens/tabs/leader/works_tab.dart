@@ -117,7 +117,6 @@ class _WorksTabState extends State<WorksTab>
         ),
         child: Column(
           children: [
-            // Выбор проекта и этапа
             Container(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               decoration: BoxDecoration(
@@ -159,7 +158,6 @@ class _WorksTabState extends State<WorksTab>
               ),
             ),
 
-            // Фильтры
             FilterControls(
               searchQuery: _searchQuery,
               onSearchChanged: (value) => setState(() => _searchQuery = value),
@@ -173,7 +171,6 @@ class _WorksTabState extends State<WorksTab>
 
             const SizedBox(height: 12),
 
-            // Список работ
             Expanded(
               child: _selectedStage == null
                   ? Center(
@@ -327,7 +324,7 @@ class _WorksTabState extends State<WorksTab>
       ),
 
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80), // Поднимаем над таббаром
+        padding: const EdgeInsets.only(bottom: 80), 
         child: ScaleTransition(
           scale: _fabScaleAnimation,
           child: FloatingActionButton.extended(
@@ -358,7 +355,7 @@ class _WorksTabState extends State<WorksTab>
         ),
       ),
       floatingActionButtonLocation:
-          FloatingActionButtonLocation.endFloat, // Правый нижний угол
+          FloatingActionButtonLocation.endFloat, 
     );
   }
 
@@ -402,7 +399,6 @@ class _WorksTabState extends State<WorksTab>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Ручка для свайпа вниз
                 Center(
                   child: Container(
                     width: 60,
@@ -426,7 +422,6 @@ class _WorksTabState extends State<WorksTab>
                 ),
                 const SizedBox(height: 24),
 
-                // Название
                 TextField(
                   controller: nameController,
                   textCapitalization: TextCapitalization.sentences,
@@ -445,7 +440,6 @@ class _WorksTabState extends State<WorksTab>
                 ),
                 const SizedBox(height: 20),
 
-                // Описание
                 TextField(
                   controller: descController,
                   textCapitalization: TextCapitalization.sentences,
@@ -465,7 +459,6 @@ class _WorksTabState extends State<WorksTab>
                 ),
                 const SizedBox(height: 20),
 
-                // Даты
                 Row(
                   children: [
                     Expanded(
@@ -561,7 +554,6 @@ class _WorksTabState extends State<WorksTab>
                 ),
                 const SizedBox(height: 20),
 
-                // Назначить работнику
                 DropdownButtonFormField<Map<String, dynamic>?>(
                   value: assignedUser,
                   hint: const Text('Назначить работнику'),
@@ -593,7 +585,6 @@ class _WorksTabState extends State<WorksTab>
                 ),
                 const SizedBox(height: 32),
 
-                // Кнопка Создать
                 SizedBox(
                   width: double.infinity,
                   height: 60,

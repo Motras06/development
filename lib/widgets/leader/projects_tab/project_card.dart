@@ -7,8 +7,7 @@ import '/models/enums.dart';
 
 class ProjectCard extends StatefulWidget {
   final Map<String, dynamic> project;
-  final VoidCallback? onRefresh; // Добавлен
-
+  final VoidCallback? onRefresh;
   const ProjectCard({super.key, required this.project, this.onRefresh});
 
   @override
@@ -27,8 +26,7 @@ class _ProjectCardState extends State<ProjectCard> {
     CreateProjectDialog.show(
       context,
       projectToEdit: widget.project,
-      onSuccess: widget
-          .onRefresh, // ← передаём дальше, если редактирование тоже должно обновлять
+      onSuccess: widget.onRefresh,
     );
   }
 
@@ -236,9 +234,8 @@ class _ProjectCardState extends State<ProjectCard> {
           HapticFeedback.heavyImpact();
 
           final confirm = await showDialog<bool>(
-            context: context, // ← добавили
+            context: context,
             builder: (BuildContext dialogContext) {
-              // ← добавили
               return AlertDialog(
                 title: const Text('Удалить проект?'),
                 content: const Text(

@@ -50,7 +50,10 @@ class FilterControls extends StatelessWidget {
                   )
                 : null,
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 18,
+            ),
           ),
         ),
       ),

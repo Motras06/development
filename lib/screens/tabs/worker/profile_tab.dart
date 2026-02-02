@@ -55,9 +55,9 @@ class _ProfileTabState extends State<ProfileTab> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка загрузки профиля: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка загрузки профиля: $e')));
       }
     } finally {
       if (mounted) {
@@ -77,21 +77,26 @@ class _ProfileTabState extends State<ProfileTab> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('Нет активной сессии');
 
-      await supabase.from('users').update({
-        'full_name': _fullName?.trim().isNotEmpty == true ? _fullName!.trim() : null,
-        'phone': _phone?.trim().isNotEmpty == true ? _phone!.trim() : null,
-      }).eq('id', userId);
+      await supabase
+          .from('users')
+          .update({
+            'full_name': _fullName?.trim().isNotEmpty == true
+                ? _fullName!.trim()
+                : null,
+            'phone': _phone?.trim().isNotEmpty == true ? _phone!.trim() : null,
+          })
+          .eq('id', userId);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Профиль обновлён')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Профиль обновлён')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка сохранения: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
       }
     } finally {
       if (mounted) {
@@ -120,7 +125,8 @@ class _ProfileTabState extends State<ProfileTab> {
                 controller: oldCtrl,
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Текущий пароль'),
-                validator: (v) => v?.trim().isEmpty ?? true ? 'Обязательно' : null,
+                validator: (v) =>
+                    v?.trim().isEmpty ?? true ? 'Обязательно' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -138,7 +144,9 @@ class _ProfileTabState extends State<ProfileTab> {
               TextFormField(
                 controller: confirmCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Повторите новый пароль'),
+                decoration: const InputDecoration(
+                  labelText: 'Повторите новый пароль',
+                ),
                 validator: (v) {
                   if (v != newCtrl.text) return 'Пароли не совпадают';
                   return null;
@@ -157,10 +165,6 @@ class _ProfileTabState extends State<ProfileTab> {
               if (!formKey.currentState!.validate()) return;
 
               try {
-                // Supabase позволяет менять пароль только если пользователь аутентифицирован
-                // Проверку старого пароля делать через RPC или вручную нельзя в простом варианте
-                // Здесь — самый простой и безопасный способ (только новый пароль)
-
                 final res = await supabase.auth.updateUser(
                   UserAttributes(password: newCtrl.text.trim()),
                 );
@@ -175,15 +179,15 @@ class _ProfileTabState extends State<ProfileTab> {
                 }
               } on AuthException catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.message)),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(e.message)));
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка: $e')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
                 }
               }
             },
@@ -212,16 +216,11 @@ class _ProfileTabState extends State<ProfileTab> {
           children: [
             const SizedBox(height: 32),
 
-            // Аватар (заглушка)
             Center(
               child: CircleAvatar(
                 radius: 60,
                 backgroundColor: colorScheme.primary.withOpacity(0.15),
-                child: Icon(
-                  Icons.person,
-                  size: 80,
-                  color: colorScheme.primary,
-                ),
+                child: Icon(Icons.person, size: 80, color: colorScheme.primary),
               ),
             ),
 
@@ -248,16 +247,13 @@ class _ProfileTabState extends State<ProfileTab> {
             const SizedBox(height: 8),
 
             Chip(
-              label: Text(
-                'Роль: $_role',
-              ),
+              label: Text('Роль: $_role'),
               backgroundColor: colorScheme.primary.withOpacity(0.1),
               labelStyle: TextStyle(color: colorScheme.primary),
             ),
 
             const SizedBox(height: 40),
 
-            // Поля редактирования
             TextFormField(
               initialValue: _fullName,
               decoration: const InputDecoration(
@@ -266,7 +262,8 @@ class _ProfileTabState extends State<ProfileTab> {
               ),
               textCapitalization: TextCapitalization.words,
               onSaved: (v) => _fullName = v?.trim(),
-              validator: (v) => v?.trim().isEmpty ?? true ? 'Укажите ФИО' : null,
+              validator: (v) =>
+                  v?.trim().isEmpty ?? true ? 'Укажите ФИО' : null,
             ),
 
             const SizedBox(height: 16),

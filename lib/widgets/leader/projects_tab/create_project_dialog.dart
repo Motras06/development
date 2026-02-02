@@ -6,7 +6,7 @@ class CreateProjectDialog {
   static Future<void> show(
     BuildContext context, {
     Map<String, dynamic>? projectToEdit,
-    VoidCallback? onSuccess, // ← callback для обновления списка
+    VoidCallback? onSuccess,
   }) async {
     final _supabase = Supabase.instance.client;
     final userId = _supabase.auth.currentUser?.id;
@@ -14,8 +14,12 @@ class CreateProjectDialog {
 
     final isEdit = projectToEdit != null;
 
-    final nameController = TextEditingController(text: isEdit ? projectToEdit['name'] : '');
-    final descController = TextEditingController(text: isEdit ? projectToEdit['description'] ?? '' : '');
+    final nameController = TextEditingController(
+      text: isEdit ? projectToEdit['name'] : '',
+    );
+    final descController = TextEditingController(
+      text: isEdit ? projectToEdit['description'] ?? '' : '',
+    );
 
     DateTime? startDate = isEdit && projectToEdit['start_date'] != null
         ? DateTime.tryParse(projectToEdit['start_date'])
@@ -28,7 +32,9 @@ class CreateProjectDialog {
         ? (projectToEdit['manual_progress'] as num).toDouble().clamp(0.0, 100.0)
         : 0.0;
 
-    final progressTextController = TextEditingController(text: manualProgress.toInt().toString());
+    final progressTextController = TextEditingController(
+      text: manualProgress.toInt().toString(),
+    );
 
     ProjectStatus selectedStatus = isEdit && projectToEdit['status'] != null
         ? ProjectStatus.values.firstWhere(
@@ -59,29 +65,28 @@ class CreateProjectDialog {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Ручка
                   Center(
                     child: Container(
                       width: 60,
                       height: 6,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
                   ),
                   const SizedBox(height: 24),
 
-                  // Заголовок
                   Text(
                     isEdit ? 'Редактировать проект' : 'Новый проект',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 24),
 
-                  // Название
                   TextField(
                     controller: nameController,
                     textCapitalization: TextCapitalization.sentences,
@@ -89,7 +94,9 @@ class CreateProjectDialog {
                       labelText: 'Название проекта *',
                       prefixIcon: const Icon(Icons.title),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surface.withOpacity(0.8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide.none,
@@ -98,7 +105,6 @@ class CreateProjectDialog {
                   ),
                   const SizedBox(height: 20),
 
-                  // Описание
                   TextField(
                     controller: descController,
                     textCapitalization: TextCapitalization.sentences,
@@ -107,7 +113,9 @@ class CreateProjectDialog {
                       labelText: 'Описание (опционально)',
                       prefixIcon: const Icon(Icons.description_outlined),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surface.withOpacity(0.8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide.none,
@@ -116,19 +124,25 @@ class CreateProjectDialog {
                   ),
                   const SizedBox(height: 24),
 
-                  // Даты
                   Row(
                     children: [
                       Expanded(
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(color: Theme.of(context).dividerColor),
+                            side: BorderSide(
+                              color: Theme.of(context).dividerColor,
+                            ),
                           ),
                           leading: const Icon(Icons.calendar_today),
                           title: Text(
-                            startDate == null ? 'Дата начала' : startDate!.toString().split(' ')[0],
+                            startDate == null
+                                ? 'Дата начала'
+                                : startDate!.toString().split(' ')[0],
                           ),
                           onTap: () async {
                             final picked = await showDatePicker(
@@ -137,30 +151,41 @@ class CreateProjectDialog {
                               firstDate: DateTime.now(),
                               lastDate: DateTime(2030),
                             );
-                            if (picked != null) setDialogState(() => startDate = picked);
+                            if (picked != null)
+                              setDialogState(() => startDate = picked);
                           },
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(color: Theme.of(context).dividerColor),
+                            side: BorderSide(
+                              color: Theme.of(context).dividerColor,
+                            ),
                           ),
                           leading: const Icon(Icons.calendar_today_outlined),
                           title: Text(
-                            endDate == null ? 'Дата окончания' : endDate!.toString().split(' ')[0],
+                            endDate == null
+                                ? 'Дата окончания'
+                                : endDate!.toString().split(' ')[0],
                           ),
                           onTap: () async {
                             final picked = await showDatePicker(
                               context: context,
-                              initialDate: endDate ?? DateTime.now().add(const Duration(days: 30)),
+                              initialDate:
+                                  endDate ??
+                                  DateTime.now().add(const Duration(days: 30)),
                               firstDate: DateTime.now(),
                               lastDate: DateTime(2030),
                             );
-                            if (picked != null) setDialogState(() => endDate = picked);
+                            if (picked != null)
+                              setDialogState(() => endDate = picked);
                           },
                         ),
                       ),
@@ -169,7 +194,6 @@ class CreateProjectDialog {
 
                   const SizedBox(height: 32),
 
-                  // Выбор статуса
                   Text(
                     'Статус проекта',
                     style: Theme.of(context).textTheme.titleMedium,
@@ -188,7 +212,9 @@ class CreateProjectDialog {
                           _statusDisplayName(status),
                           style: TextStyle(
                             color: isSelected ? Colors.white : color,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                         selected: isSelected,
@@ -196,7 +222,10 @@ class CreateProjectDialog {
                         backgroundColor: color.withOpacity(0.12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(color: color, width: isSelected ? 2 : 1),
+                          side: BorderSide(
+                            color: color,
+                            width: isSelected ? 2 : 1,
+                          ),
                         ),
                         onSelected: (selected) {
                           if (selected) {
@@ -204,14 +233,16 @@ class CreateProjectDialog {
                           }
                         },
                         showCheckmark: false,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                       );
                     }).toList(),
                   ),
 
                   const SizedBox(height: 32),
 
-                  // Прогресс
                   Text(
                     'Готовность проекта',
                     style: Theme.of(context).textTheme.titleMedium,
@@ -245,8 +276,12 @@ class CreateProjectDialog {
                           textAlign: TextAlign.center,
                           decoration: InputDecoration(
                             suffixText: '%',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                            ),
                           ),
                           onChanged: (val) {
                             final numVal = double.tryParse(val) ?? 0;
@@ -261,7 +296,6 @@ class CreateProjectDialog {
 
                   const SizedBox(height: 40),
 
-                  // Кнопка
                   SizedBox(
                     width: double.infinity,
                     height: 56,
@@ -272,11 +306,18 @@ class CreateProjectDialog {
                               try {
                                 final data = {
                                   'name': nameController.text.trim(),
-                                  'description': descController.text.trim().isEmpty
+                                  'description':
+                                      descController.text.trim().isEmpty
                                       ? null
                                       : descController.text.trim(),
-                                  'start_date': startDate?.toIso8601String().split('T').first,
-                                  'end_date': endDate?.toIso8601String().split('T').first,
+                                  'start_date': startDate
+                                      ?.toIso8601String()
+                                      .split('T')
+                                      .first,
+                                  'end_date': endDate
+                                      ?.toIso8601String()
+                                      .split('T')
+                                      .first,
                                   'manual_progress': manualProgress,
                                   'status': selectedStatus.name,
                                 };
@@ -289,30 +330,32 @@ class CreateProjectDialog {
                                 } else {
                                   final response = await _supabase
                                       .from('projects')
-                                      .insert({
-                                        ...data,
-                                        'created_by': userId,
-                                      })
+                                      .insert({...data, 'created_by': userId})
                                       .select('id')
                                       .single();
 
                                   final projectId = response['id'];
-                                  await _supabase.from('project_participants').insert({
-                                    'project_id': projectId,
-                                    'user_id': userId,
-                                    'role': ParticipantRole.leader.name,
-                                  });
+                                  await _supabase
+                                      .from('project_participants')
+                                      .insert({
+                                        'project_id': projectId,
+                                        'user_id': userId,
+                                        'role': ParticipantRole.leader.name,
+                                      });
                                 }
 
                                 if (context.mounted) {
                                   Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text(isEdit ? 'Проект обновлён' : 'Проект создан'),
+                                      content: Text(
+                                        isEdit
+                                            ? 'Проект обновлён'
+                                            : 'Проект создан',
+                                      ),
                                     ),
                                   );
 
-                                  // Триггерим обновление списка
                                   onSuccess?.call();
                                 }
                               } catch (e) {
@@ -326,12 +369,17 @@ class CreateProjectDialog {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
                         elevation: 6,
                       ),
                       child: Text(
                         isEdit ? 'Сохранить изменения' : 'Создать проект',
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -347,19 +395,19 @@ class CreateProjectDialog {
 
   static Color _getStatusColor(ProjectStatus status) {
     return switch (status) {
-      ProjectStatus.active    => Colors.green.shade700,
-      ProjectStatus.paused    => Colors.orange.shade700,
+      ProjectStatus.active => Colors.green.shade700,
+      ProjectStatus.paused => Colors.orange.shade700,
       ProjectStatus.completed => Colors.blue.shade700,
-      ProjectStatus.archived  => Colors.grey.shade700,
+      ProjectStatus.archived => Colors.grey.shade700,
     };
   }
 
   static String _statusDisplayName(ProjectStatus status) {
     return switch (status) {
-      ProjectStatus.active    => 'Активный',
-      ProjectStatus.paused    => 'На паузе',
+      ProjectStatus.active => 'Активный',
+      ProjectStatus.paused => 'На паузе',
       ProjectStatus.completed => 'Завершён',
-      ProjectStatus.archived  => 'Архивирован',
+      ProjectStatus.archived => 'Архивирован',
     };
   }
 }

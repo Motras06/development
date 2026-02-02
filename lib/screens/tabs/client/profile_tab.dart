@@ -52,9 +52,9 @@ class _ProfileTabState extends State<ProfileTab> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка загрузки профиля: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка загрузки профиля: $e')));
       }
     } finally {
       if (mounted) {
@@ -74,21 +74,26 @@ class _ProfileTabState extends State<ProfileTab> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('Нет активной сессии');
 
-      await supabase.from('users').update({
-        'full_name': _fullName?.trim().isNotEmpty == true ? _fullName!.trim() : null,
-        'phone': _phone?.trim().isNotEmpty == true ? _phone!.trim() : null,
-      }).eq('id', userId);
+      await supabase
+          .from('users')
+          .update({
+            'full_name': _fullName?.trim().isNotEmpty == true
+                ? _fullName!.trim()
+                : null,
+            'phone': _phone?.trim().isNotEmpty == true ? _phone!.trim() : null,
+          })
+          .eq('id', userId);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Профиль обновлён')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Профиль обновлён')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка сохранения: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
       }
     } finally {
       if (mounted) {
@@ -127,7 +132,9 @@ class _ProfileTabState extends State<ProfileTab> {
               TextFormField(
                 controller: confirmCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Повторите новый пароль'),
+                decoration: const InputDecoration(
+                  labelText: 'Повторите новый пароль',
+                ),
                 validator: (v) {
                   if (v != newCtrl.text) return 'Пароли не совпадают';
                   return null;
@@ -160,15 +167,15 @@ class _ProfileTabState extends State<ProfileTab> {
                 }
               } on AuthException catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.message)),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(e.message)));
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка: $e')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
                 }
               }
             },
@@ -197,7 +204,6 @@ class _ProfileTabState extends State<ProfileTab> {
           children: [
             const SizedBox(height: 32),
 
-            // Аватар заказчика (более стильный)
             Center(
               child: CircleAvatar(
                 radius: 70,
@@ -235,26 +241,35 @@ class _ProfileTabState extends State<ProfileTab> {
 
             Center(
               child: Chip(
-                label: const Text('Заказчик', style: TextStyle(fontWeight: FontWeight.w600)),
+                label: const Text(
+                  'Заказчик',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
                 backgroundColor: Colors.green.withOpacity(0.1),
                 labelStyle: const TextStyle(color: Colors.green),
-                avatar: const Icon(Icons.verified_user, color: Colors.green, size: 18),
+                avatar: const Icon(
+                  Icons.verified_user,
+                  color: Colors.green,
+                  size: 18,
+                ),
               ),
             ),
 
             const SizedBox(height: 48),
 
-            // Поля редактирования
             TextFormField(
               initialValue: _fullName,
               decoration: InputDecoration(
                 labelText: 'ФИО / Название компании',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 prefixIcon: const Icon(Icons.person),
               ),
               textCapitalization: TextCapitalization.words,
               onSaved: (v) => _fullName = v?.trim(),
-              validator: (v) => v?.trim().isEmpty ?? true ? 'Укажите имя или название' : null,
+              validator: (v) =>
+                  v?.trim().isEmpty ?? true ? 'Укажите имя или название' : null,
             ),
 
             const SizedBox(height: 20),
@@ -263,7 +278,9 @@ class _ProfileTabState extends State<ProfileTab> {
               initialValue: _phone,
               decoration: InputDecoration(
                 labelText: 'Телефон для связи',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 prefixIcon: const Icon(Icons.phone),
               ),
               keyboardType: TextInputType.phone,
@@ -277,7 +294,6 @@ class _ProfileTabState extends State<ProfileTab> {
 
             const SizedBox(height: 40),
 
-            // Кнопка сохранения
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               child: ElevatedButton.icon(
@@ -286,27 +302,35 @@ class _ProfileTabState extends State<ProfileTab> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.save),
-                label: Text(_isSaving ? 'Сохранение...' : 'Сохранить изменения'),
+                label: Text(
+                  _isSaving ? 'Сохранение...' : 'Сохранить изменения',
+                ),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
 
             const SizedBox(height: 24),
 
-            // Смена пароля
             OutlinedButton.icon(
               onPressed: _changePassword,
               icon: const Icon(Icons.lock_reset),
               label: const Text('Сменить пароль'),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],

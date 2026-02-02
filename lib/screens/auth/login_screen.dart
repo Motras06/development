@@ -2,7 +2,7 @@ import 'package:development/services/main_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '/screens/auth/register_screen.dart';
-import '../settings/app_colors.dart'; // подключи свой app_colors.dart
+import '../settings/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -35,13 +35,13 @@ class _LoginScreenState extends State<LoginScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
-    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
+          ),
+        );
 
     _animationController.forward();
   }
@@ -57,9 +57,9 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _login() async {
     if (_emailController.text.trim().isEmpty ||
         _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните все поля')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Заполните все поля')));
       return;
     }
 
@@ -72,7 +72,6 @@ class _LoginScreenState extends State<LoginScreen>
       );
 
       if (response.user != null && mounted) {
-        // Крутая анимация успеха перед переходом
         await _animationController.reverse();
         if (mounted) {
           Navigator.of(context).pushReplacement(
@@ -131,7 +130,6 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Логотип / Иконка приложения
                       Hero(
                         tag: 'app_logo',
                         child: Container(
@@ -156,7 +154,6 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                       const SizedBox(height: 48),
 
-                      // Заголовок
                       Text(
                         'Добро пожаловать',
                         style: theme.textTheme.headlineMedium?.copyWith(
@@ -173,7 +170,6 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                       const SizedBox(height: 48),
 
-                      // Email поле
                       TextField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
@@ -189,13 +185,14 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.3)),
+                            borderSide: BorderSide(
+                              color: colorScheme.outline.withOpacity(0.3),
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 20),
 
-                      // Пароль поле
                       TextField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
@@ -209,7 +206,9 @@ class _LoginScreenState extends State<LoginScreen>
                                   : Icons.visibility,
                             ),
                             onPressed: () {
-                              setState(() => _obscurePassword = !_obscurePassword);
+                              setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              );
                             },
                           ),
                           filled: true,
@@ -220,13 +219,14 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.3)),
+                            borderSide: BorderSide(
+                              color: colorScheme.outline.withOpacity(0.3),
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 32),
 
-                      // Кнопка входа
                       SizedBox(
                         width: double.infinity,
                         height: 56,
@@ -242,7 +242,9 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                           ),
                           child: _isLoading
-                              ? const CircularProgressIndicator(color: Colors.white)
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
                               : const Text(
                                   'Войти',
                                   style: TextStyle(
@@ -254,16 +256,21 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                       const SizedBox(height: 24),
 
-                      // Ссылка на регистрацию
                       TextButton(
                         onPressed: () {
                           Navigator.push(
                             context,
                             PageRouteBuilder(
-                              transitionDuration: const Duration(milliseconds: 400),
-                              pageBuilder: (_, __, ___) => const RegisterScreen(),
+                              transitionDuration: const Duration(
+                                milliseconds: 400,
+                              ),
+                              pageBuilder: (_, __, ___) =>
+                                  const RegisterScreen(),
                               transitionsBuilder: (_, animation, __, child) {
-                                return FadeTransition(opacity: animation, child: child);
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                );
                               },
                             ),
                           );
@@ -271,7 +278,9 @@ class _LoginScreenState extends State<LoginScreen>
                         child: RichText(
                           text: TextSpan(
                             text: 'Нет аккаунта? ',
-                            style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
+                            style: TextStyle(
+                              color: colorScheme.onSurface.withOpacity(0.7),
+                            ),
                             children: [
                               TextSpan(
                                 text: 'Зарегистрироваться',

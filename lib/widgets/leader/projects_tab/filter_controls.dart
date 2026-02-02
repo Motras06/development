@@ -26,7 +26,6 @@ class FilterControls extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Поисковое поле — стильное, с анимацией иконки и очисткой
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutCubic,
@@ -45,7 +44,9 @@ class FilterControls extends StatelessWidget {
               onChanged: onSearchChanged,
               decoration: InputDecoration(
                 hintText: 'Поиск по названию проекта',
-                hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+                hintStyle: TextStyle(
+                  color: colorScheme.onSurface.withOpacity(0.5),
+                ),
                 prefixIcon: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   child: Icon(
@@ -64,19 +65,20 @@ class FilterControls extends StatelessWidget {
                       )
                     : null,
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 18,
+                ),
               ),
             ),
           ),
 
           const SizedBox(height: 20),
 
-          // Фильтры по статусу — красивые FilterChip'ы
           Wrap(
             spacing: 12,
             runSpacing: 12,
             children: [
-              // Кнопка "Все"
               FilterChip(
                 label: const Text('Все'),
                 selected: selectedStatus == null,
@@ -87,13 +89,18 @@ class FilterControls extends StatelessWidget {
                 backgroundColor: colorScheme.surface,
                 selectedColor: colorScheme.primary.withOpacity(0.15),
                 labelStyle: TextStyle(
-                  color: selectedStatus == null ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.8),
-                  fontWeight: selectedStatus == null ? FontWeight.bold : FontWeight.normal,
+                  color: selectedStatus == null
+                      ? colorScheme.primary
+                      : colorScheme.onSurface.withOpacity(0.8),
+                  fontWeight: selectedStatus == null
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                 ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
               ),
 
-              // Чипы по статусам
               ...ProjectStatus.values.map((status) {
                 final isSelected = selectedStatus == status;
                 final statusName = _statusDisplayName(status);
@@ -114,15 +121,28 @@ class FilterControls extends StatelessWidget {
                       ? CircleAvatar(
                           backgroundColor: statusColor,
                           radius: 8,
-                          child: const Icon(Icons.check, size: 12, color: Colors.white),
+                          child: const Icon(
+                            Icons.check,
+                            size: 12,
+                            color: Colors.white,
+                          ),
                         )
                       : null,
                   labelStyle: TextStyle(
-                    color: isSelected ? statusColor : colorScheme.onSurface.withOpacity(0.8),
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected
+                        ? statusColor
+                        : colorScheme.onSurface.withOpacity(0.8),
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
                 );
               }),
             ],

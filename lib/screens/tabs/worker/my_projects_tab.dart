@@ -11,7 +11,8 @@ class MyProjectsTab extends StatefulWidget {
   State<MyProjectsTab> createState() => _MyProjectsTabState();
 }
 
-class _MyProjectsTabState extends State<MyProjectsTab> with TickerProviderStateMixin {
+class _MyProjectsTabState extends State<MyProjectsTab>
+    with TickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
   final userId = Supabase.instance.client.auth.currentUser?.id;
   String _searchQuery = '';
@@ -71,7 +72,6 @@ class _MyProjectsTabState extends State<MyProjectsTab> with TickerProviderStateM
         child: SafeArea(
           child: Column(
             children: [
-              // Заголовок + поиск
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Column(
@@ -86,24 +86,31 @@ class _MyProjectsTabState extends State<MyProjectsTab> with TickerProviderStateM
                     ),
                     const SizedBox(height: 16),
                     TextField(
-                      onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                      onChanged: (value) =>
+                          setState(() => _searchQuery = value.toLowerCase()),
                       decoration: InputDecoration(
                         hintText: 'Поиск по названию проекта...',
-                        prefixIcon: Icon(Icons.search_rounded, color: colorScheme.primary),
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          color: colorScheme.primary,
+                        ),
                         filled: true,
-                        fillColor: colorScheme.surfaceContainerHighest.withOpacity(0.7),
+                        fillColor: colorScheme.surfaceContainerHighest
+                            .withOpacity(0.7),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: BorderSide.none,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                          horizontal: 16,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // Список
               Expanded(
                 child: StreamBuilder<List<Map<String, dynamic>>>(
                   stream: _supabase
@@ -126,7 +133,9 @@ class _MyProjectsTabState extends State<MyProjectsTab> with TickerProviderStateM
                       return _buildEmptyState(colorScheme);
                     }
 
-                    final projectIds = participants.map((p) => p['project_id'] as String).toList();
+                    final projectIds = participants
+                        .map((p) => p['project_id'] as String)
+                        .toList();
 
                     return StreamBuilder<List<Map<String, dynamic>>>(
                       stream: _supabase
@@ -135,19 +144,27 @@ class _MyProjectsTabState extends State<MyProjectsTab> with TickerProviderStateM
                           .inFilter('id', projectIds)
                           .order('created_at', ascending: false),
                       builder: (context, projectSnapshot) {
-                        if (projectSnapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
+                        if (projectSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
                         }
 
                         if (projectSnapshot.hasError) {
-                          return Center(child: Text('Ошибка загрузки: ${projectSnapshot.error}'));
+                          return Center(
+                            child: Text(
+                              'Ошибка загрузки: ${projectSnapshot.error}',
+                            ),
+                          );
                         }
 
                         var projects = projectSnapshot.data ?? [];
 
                         if (_searchQuery.isNotEmpty) {
                           projects = projects.where((p) {
-                            final name = (p['name'] as String?)?.toLowerCase() ?? '';
+                            final name =
+                                (p['name'] as String?)?.toLowerCase() ?? '';
                             return name.contains(_searchQuery);
                           }).toList();
                         }
@@ -172,19 +189,30 @@ class _MyProjectsTabState extends State<MyProjectsTab> with TickerProviderStateM
                               itemCount: projects.length,
                               itemBuilder: (context, index) {
                                 final project = projects[index];
-                                final name = project['name'] as String? ?? 'Без названия';
-                                final description = project['description'] as String?;
-                                final statusStr = project['status'] as String? ?? 'active';
-                                final startDate = project['start_date'] as String?;
+                                final name =
+                                    project['name'] as String? ??
+                                    'Без названия';
+                                final description =
+                                    project['description'] as String?;
+                                final statusStr =
+                                    project['status'] as String? ?? 'active';
+                                final startDate =
+                                    project['start_date'] as String?;
                                 final endDate = project['end_date'] as String?;
-                                final manualProgress = (project['manual_progress'] as num?)?.toDouble() ?? 0.0;
+                                final manualProgress =
+                                    (project['manual_progress'] as num?)
+                                        ?.toDouble() ??
+                                    0.0;
 
-                                final progress = manualProgress.clamp(0.0, 100.0);
+                                final progress = manualProgress.clamp(
+                                  0.0,
+                                  100.0,
+                                );
                                 final progressColor = progress < 30
                                     ? Colors.red.shade600
                                     : progress < 70
-                                        ? Colors.orange.shade600
-                                        : Colors.green.shade600;
+                                    ? Colors.orange.shade600
+                                    : Colors.green.shade600;
 
                                 final participant = participants.firstWhere(
                                   (p) => p['project_id'] == project['id'],
@@ -209,8 +237,14 @@ class _MyProjectsTabState extends State<MyProjectsTab> with TickerProviderStateM
                                     startDate: startDate,
                                     endDate: endDate,
                                     onTap: () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Открыть проект: $name')),
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Открыть проект: $name',
+                                          ),
+                                        ),
                                       );
                                     },
                                   ),
@@ -307,7 +341,6 @@ class _MyProjectsTabState extends State<MyProjectsTab> with TickerProviderStateM
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header: аватар роли + название + описание
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -358,7 +391,6 @@ class _MyProjectsTabState extends State<MyProjectsTab> with TickerProviderStateM
 
                   const SizedBox(height: 24),
 
-                  // Прогресс + статус
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -381,7 +413,10 @@ class _MyProjectsTabState extends State<MyProjectsTab> with TickerProviderStateM
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: progressColor.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(20),
@@ -405,7 +440,8 @@ class _MyProjectsTabState extends State<MyProjectsTab> with TickerProviderStateM
                     child: LinearProgressIndicator(
                       value: progress / 100,
                       minHeight: 12,
-                      backgroundColor: colorScheme.surfaceContainerHighest.withOpacity(0.6),
+                      backgroundColor: colorScheme.surfaceContainerHighest
+                          .withOpacity(0.6),
                       valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                     ),
                   ),

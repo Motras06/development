@@ -8,10 +8,9 @@ import '/screens/tabs/worker/worker_home.dart';
 class AuthRoleService {
   static Future<Widget> getHomeScreen() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return const SizedBox(); // не должно быть
+    if (userId == null) return const SizedBox();
 
     try {
-      // Сначала проверяем админа
       final userData = await Supabase.instance.client
           .from('users')
           .select('is_admin')
@@ -21,9 +20,7 @@ class AuthRoleService {
       if (userData['is_admin'] == true) {
         return const AdminHomeScreen();
       }
-    } catch (e) {
-      // Если нет записи в users — продолжаем
-    }
+    } catch (e) {}
 
     try {
       final rolesData = await Supabase.instance.client
@@ -36,11 +33,8 @@ class AuthRoleService {
       if (roles.contains('leader')) return const LeaderHome();
       if (roles.contains('worker')) return const WorkerHome();
       if (roles.contains('client')) return const ClientHome();
-    } catch (e) {
-      // Нет ролей — можно показать онбординг
-    }
+    } catch (e) {}
 
-    // По умолчанию — клиент или специальный экран
     return const ClientHome();
   }
 }

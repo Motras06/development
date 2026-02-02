@@ -1,39 +1,31 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Основной зелёный
   static const Color primary = Color(0xFF50D14D);
   static const Color primaryLight = Color(0xFF7FE57C);
   static const Color primaryDark = Color(0xFF3AA839);
 
-  // Акцент
   static const Color accent = Color(0xFF54FF52);
   static const Color accentLight = Color(0xFFCAFFC9);
 
-  // Фоны
   static const Color scaffoldBackground = Color(0xFFF5FFF5);
   static const Color cardBackground = Color(0xFFFFFFFF);
   static const Color surface = Color(0xFFEBFFEB);
 
-  // Текст
   static const Color textPrimary = Color(0xFF1E2A1E);
   static const Color textSecondary = Color(0xFF556B55);
   static const Color textHint = Color(0xFF88AA88);
 
-  // Статусы
   static const Color success = Color(0xFF50D14D);
   static const Color warning = Color(0xFFFFB800);
   static const Color error = Color(0xFFE57373);
 
-  // Дополнительно
   static const Color divider = Color(0xFFB2D8B2);
 
-  // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Используем fromSeed с твоим primary, но фиксируем всё
   static final ThemeData lightTheme = ThemeData(
-    useMaterial3: true, // Включаем Material 3
+    useMaterial3: true, 
     brightness: Brightness.light,
 
-    // Отключаем динамические цвета и фиксируем нашу палитру
     colorScheme: ColorScheme.fromSeed(
       seedColor: primary,
       primary: primary,
@@ -55,7 +47,7 @@ class AppColors {
       headlineMedium: const TextStyle(fontWeight: FontWeight.bold, color: textPrimary),
       bodyLarge: const TextStyle(color: textPrimary),
       bodyMedium: TextStyle(color: textSecondary),
-      labelLarge: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), // для кнопок
+      labelLarge: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
     ),
 
     appBarTheme: AppBarTheme(

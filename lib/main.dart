@@ -9,20 +9,15 @@ import 'package:device_preview/device_preview.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Загружаем .env
   await dotenv.load(fileName: ".env");
 
-  // Инициализация Supabase
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
 
   runApp(
-    DevicePreview(
-      enabled: !kReleaseMode,
-      builder: (context) => const MyApp(),
-    ),
+    DevicePreview(enabled: !kReleaseMode, builder: (context) => const MyApp()),
   );
 }
 

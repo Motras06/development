@@ -1,5 +1,3 @@
-// lib/models/enums.dart
-
 enum ProjectStatus {
   active,
   paused,
@@ -14,7 +12,7 @@ enum ParticipantRole {
   leader,
   worker,
   client,
-  admin; // если добавил 'admin' в enum
+  admin; 
 
   @override
   String toString() => name;

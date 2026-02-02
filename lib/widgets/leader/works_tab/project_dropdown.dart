@@ -54,14 +54,13 @@ class ProjectDropdown extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  // ← КЛЮЧЕВОЕ: Expanded
                   child: Text(
                     'Выберите проект',
                     style: TextStyle(
                       color: colorScheme.onSurface.withOpacity(0.7),
                       fontSize: 16,
                     ),
-                    overflow: TextOverflow.ellipsis, // ← Обрезает с "..."
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

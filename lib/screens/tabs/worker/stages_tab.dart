@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
@@ -63,12 +62,15 @@ class _StagesTabState extends State<StagesTab> {
       body: SafeArea(
         child: Column(
           children: [
-            // Заголовок + выбор проекта
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Row(
                 children: [
-                  Icon(Icons.timeline_rounded, color: colorScheme.primary, size: 28),
+                  Icon(
+                    Icons.timeline_rounded,
+                    color: colorScheme.primary,
+                    size: 28,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -83,12 +85,13 @@ class _StagesTabState extends State<StagesTab> {
               ),
             ),
 
-            // Dropdown проектов
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Card(
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 color: colorScheme.surfaceContainerHighest,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -97,10 +100,15 @@ class _StagesTabState extends State<StagesTab> {
                     value: _selectedProject,
                     hint: Text(
                       'Выберите проект',
-                      style: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     underline: const SizedBox(),
-                    icon: Icon(Icons.keyboard_arrow_down_rounded, color: colorScheme.primary),
+                    icon: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: colorScheme.primary,
+                    ),
                     items: _projects.map((project) {
                       return DropdownMenuItem(
                         value: project,
@@ -110,17 +118,18 @@ class _StagesTabState extends State<StagesTab> {
                         ),
                       );
                     }).toList(),
-                    onChanged: (value) => setState(() => _selectedProject = value),
+                    onChanged: (value) =>
+                        setState(() => _selectedProject = value),
                   ),
                 ),
               ),
             ),
 
-            // Поиск
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: TextField(
-                onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                onChanged: (value) =>
+                    setState(() => _searchQuery = value.toLowerCase()),
                 decoration: InputDecoration(
                   labelText: 'Поиск по названию этапа',
                   prefixIcon: const Icon(Icons.search_rounded),
@@ -130,30 +139,40 @@ class _StagesTabState extends State<StagesTab> {
                   ),
                   filled: true,
                   fillColor: colorScheme.surfaceContainerHighest,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ),
 
             const SizedBox(height: 8),
 
-            // Список этапов
             Expanded(
               child: _selectedProject == null
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.folder_open_rounded, size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                          Icon(
+                            Icons.folder_open_rounded,
+                            size: 80,
+                            color: colorScheme.primary.withOpacity(0.4),
+                          ),
                           const SizedBox(height: 16),
                           Text(
                             'Выберите проект',
-                            style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Чтобы увидеть этапы',
-                            style: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ),
@@ -165,18 +184,24 @@ class _StagesTabState extends State<StagesTab> {
                           .eq('project_id', _selectedProject!['id'])
                           .order('created_at', ascending: true),
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
                         }
 
                         if (snapshot.hasError) {
-                          return Center(child: Text('Ошибка: ${snapshot.error}'));
+                          return Center(
+                            child: Text('Ошибка: ${snapshot.error}'),
+                          );
                         }
 
                         final stages = snapshot.data ?? [];
 
                         final filtered = stages.where((s) {
-                          final name = (s['name'] as String?)?.toLowerCase() ?? '';
+                          final name =
+                              (s['name'] as String?)?.toLowerCase() ?? '';
                           return name.contains(_searchQuery);
                         }).toList();
 
@@ -185,11 +210,17 @@ class _StagesTabState extends State<StagesTab> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.search_off_rounded, size: 80, color: colorScheme.primary.withOpacity(0.4)),
+                                Icon(
+                                  Icons.search_off_rounded,
+                                  size: 80,
+                                  color: colorScheme.primary.withOpacity(0.4),
+                                ),
                                 const SizedBox(height: 16),
                                 Text(
                                   'Нет этапов',
-                                  style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ],
                             ),
@@ -197,13 +228,18 @@ class _StagesTabState extends State<StagesTab> {
                         }
 
                         return ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           itemCount: filtered.length,
                           itemBuilder: (context, index) {
                             final stage = filtered[index];
                             return AnimatedOpacity(
                               opacity: 1.0,
-                              duration: Duration(milliseconds: 300 + index * 100),
+                              duration: Duration(
+                                milliseconds: 300 + index * 100,
+                              ),
                               child: StageCard(
                                 stage: stage,
                                 onRefresh: () => setState(() {}),
@@ -221,7 +257,6 @@ class _StagesTabState extends State<StagesTab> {
   }
 }
 
-// Красивая карточка этапа
 class StageCard extends StatefulWidget {
   final Map<String, dynamic> stage;
   final VoidCallback? onRefresh;
@@ -238,9 +273,9 @@ class _StageCardState extends State<StageCard> {
   bool _isLoading = true;
 
   StageStatus get status => StageStatus.values.firstWhere(
-        (e) => e.name == (widget.stage['status'] as String? ?? 'planned'),
-        orElse: () => StageStatus.planned,
-      );
+    (e) => e.name == (widget.stage['status'] as String? ?? 'planned'),
+    orElse: () => StageStatus.planned,
+  );
 
   @override
   void initState() {
@@ -285,11 +320,16 @@ class _StageCardState extends State<StageCard> {
         title: const Text('Новый комментарий'),
         content: TextField(
           controller: commentController,
-          decoration: const InputDecoration(hintText: 'Что вы думаете об этом этапе?'),
+          decoration: const InputDecoration(
+            hintText: 'Что вы думаете об этом этапе?',
+          ),
           maxLines: 5,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
           TextButton(
             onPressed: () async {
               final text = commentController.text.trim();
@@ -316,9 +356,9 @@ class _StageCardState extends State<StageCard> {
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка: $e')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
                 }
               }
             },
@@ -335,10 +375,12 @@ class _StageCardState extends State<StageCard> {
 
     try {
       final dio = Dio();
-      final fileName = doc['name'] ?? 'file_${DateTime.now().millisecondsSinceEpoch}';
+      final fileName =
+          doc['name'] ?? 'file_${DateTime.now().millisecondsSinceEpoch}';
 
       final directory = await getDownloadsDirectory();
-      if (directory == null) throw Exception('Не удалось получить директорию Downloads');
+      if (directory == null)
+        throw Exception('Не удалось получить директорию Downloads');
 
       final savePath = '${directory.path}/$fileName';
 
@@ -357,9 +399,9 @@ class _StageCardState extends State<StageCard> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка скачивания: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка скачивания: $e')));
       }
     }
   }
@@ -390,14 +432,21 @@ class _StageCardState extends State<StageCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+        ),
         const SizedBox(height: 8),
         ...items.map(
           (r) => Padding(
             padding: const EdgeInsets.only(left: 16, bottom: 6),
             child: Row(
               children: [
-                Icon(Icons.circle, size: 8, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  Icons.circle,
+                  size: 8,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -415,11 +464,11 @@ class _StageCardState extends State<StageCard> {
   }
 
   Color _statusColor(StageStatus s) => switch (s) {
-        StageStatus.planned => Colors.grey.shade600,
-        StageStatus.in_progress => Colors.blue.shade600,
-        StageStatus.paused => Colors.orange.shade700,
-        StageStatus.completed => Colors.green.shade700,
-      };
+    StageStatus.planned => Colors.grey.shade600,
+    StageStatus.in_progress => Colors.blue.shade600,
+    StageStatus.paused => Colors.orange.shade700,
+    StageStatus.completed => Colors.green.shade700,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -463,7 +512,9 @@ class _StageCardState extends State<StageCard> {
         ),
         subtitle: Text(
           '${start ?? '—'} → ${end ?? '—'}',
-          style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
         ),
         trailing: Icon(
           Icons.keyboard_arrow_down_rounded,
@@ -487,7 +538,6 @@ class _StageCardState extends State<StageCard> {
 
           const Divider(height: 32, thickness: 1),
 
-          // Документы
           ListTile(
             leading: Icon(Icons.folder_rounded, color: colorScheme.primary),
             title: Text(
@@ -506,7 +556,10 @@ class _StageCardState extends State<StageCard> {
             ..._documents.map(
               (doc) => ListTile(
                 dense: true,
-                leading: Icon(_getFileIcon(doc['name'] as String?), color: colorScheme.primary),
+                leading: Icon(
+                  _getFileIcon(doc['name'] as String?),
+                  color: colorScheme.primary,
+                ),
                 title: Text(
                   doc['name'] ?? 'Без имени',
                   maxLines: 1,
@@ -516,7 +569,11 @@ class _StageCardState extends State<StageCard> {
                   _formatDate(doc['uploaded_at'] as String?),
                   style: theme.textTheme.bodySmall,
                 ),
-                trailing: Icon(Icons.download_rounded, size: 20, color: colorScheme.primary),
+                trailing: Icon(
+                  Icons.download_rounded,
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
                 onTap: () => _openDocument(doc),
               ),
             )
@@ -526,14 +583,15 @@ class _StageCardState extends State<StageCard> {
               child: Center(
                 child: Text(
                   'Документов пока нет',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ),
 
           const Divider(height: 32, thickness: 1),
 
-          // Комментарии
           ListTile(
             leading: Icon(Icons.comment_rounded, color: colorScheme.primary),
             title: Text(
@@ -546,7 +604,9 @@ class _StageCardState extends State<StageCard> {
             ),
           ),
           if (_comments.isNotEmpty)
-            ..._comments.take(5).map(
+            ..._comments
+                .take(5)
+                .map(
                   (c) => ListTile(
                     dense: true,
                     leading: CircleAvatar(
@@ -575,7 +635,9 @@ class _StageCardState extends State<StageCard> {
                 child: TextButton(
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Полный список — в разработке')),
+                      const SnackBar(
+                        content: Text('Полный список — в разработке'),
+                      ),
                     );
                   },
                   child: const Text('Показать все комментарии'),

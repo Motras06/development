@@ -27,7 +27,7 @@ class _WorkItemState extends State<WorkItem> {
   @override
   void initState() {
     super.initState();
-    _localWork = Map.from(widget.work); // локальная копия для обновлений
+    _localWork = Map.from(widget.work);
   }
 
   @override
@@ -54,7 +54,6 @@ class _WorkItemState extends State<WorkItem> {
 
     final statusColor = _getWorkStatusColor(status, colorScheme);
 
-    // Процент завершенности — берём из БД или 0
     final progressValue = (_localWork['progress'] as num?)?.toDouble() ?? 0.0;
     final displayProgress = status == WorkStatus.done
         ? 100.0
@@ -526,7 +525,7 @@ class _WorkItemState extends State<WorkItem> {
                             'updated_at': DateTime.now()
                                 .toUtc()
                                 .toIso8601String(),
-                            'progress': progress, // ← теперь сохраняем!
+                            'progress': progress,
                           };
 
                           await Supabase.instance.client
@@ -535,7 +534,6 @@ class _WorkItemState extends State<WorkItem> {
                               .eq('id', widget.work['id']);
 
                           if (context.mounted) {
-                            // Обновляем локальную копию
                             setState(() {
                               _localWork.addAll({
                                 'name': nameCtrl.text.trim(),

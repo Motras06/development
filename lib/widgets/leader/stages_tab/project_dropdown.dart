@@ -26,7 +26,9 @@ class ProjectDropdown extends StatelessWidget {
         color: colorScheme.surface.withOpacity(0.9),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: hasSelection ? colorScheme.primary : colorScheme.outline.withOpacity(0.4),
+          color: hasSelection
+              ? colorScheme.primary
+              : colorScheme.outline.withOpacity(0.4),
           width: hasSelection ? 2.5 : 1.5,
         ),
         boxShadow: [
@@ -74,7 +76,9 @@ class ProjectDropdown extends StatelessWidget {
               curve: Curves.easeOutCubic,
               child: Icon(
                 Icons.keyboard_arrow_down_rounded,
-                color: hasSelection ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.6),
+                color: hasSelection
+                    ? colorScheme.primary
+                    : colorScheme.onSurface.withOpacity(0.6),
                 size: 28,
               ),
             ),
@@ -88,7 +92,10 @@ class ProjectDropdown extends StatelessWidget {
             return DropdownMenuItem<Map<String, dynamic>?>(
               value: project,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     Icon(
@@ -125,7 +132,10 @@ class ProjectDropdown extends StatelessWidget {
           selectedItemBuilder: (context) {
             return projects.map<Widget>((project) {
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 7,
+                ),
                 child: Row(
                   children: [
                     Icon(

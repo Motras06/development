@@ -22,7 +22,9 @@ class _MainAppState extends State<MainApp> {
       stream: _supabase.auth.onAuthStateChange,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
         final session = snapshot.data?.session;
@@ -35,14 +37,16 @@ class _MainAppState extends State<MainApp> {
           future: _determineHomeScreen(),
           builder: (context, homeSnapshot) {
             if (homeSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
             }
 
             if (homeSnapshot.hasData) {
               return homeSnapshot.data!;
             }
 
-            return const ClientHome(); // Запасной вариант
+            return const ClientHome();
           },
         );
       },
@@ -61,7 +65,7 @@ class _MainAppState extends State<MainApp> {
           .maybeSingle();
 
       if (userData == null) {
-        return const ClientHome(); // Нет записи — дефолт
+        return const ClientHome();
       }
 
       if (userData['is_admin'] == true) {
@@ -78,7 +82,7 @@ class _MainAppState extends State<MainApp> {
         case 'client':
           return const ClientHome();
         default:
-          return const AdminHomeScreen(); // Или онбординг "Выберите роль"
+          return const AdminHomeScreen();
       }
     } catch (e) {
       debugPrint('Ошибка определения роли: $e');

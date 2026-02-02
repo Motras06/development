@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -34,7 +32,6 @@ class _DocumentsTabState extends State<DocumentsTab> {
     return Scaffold(
       body: Column(
         children: [
-          // Шапка: выбор проекта + этап + поиск
           Container(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             decoration: BoxDecoration(
@@ -47,7 +44,6 @@ class _DocumentsTabState extends State<DocumentsTab> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. Выбор проекта
                 StreamBuilder<List<Map<String, dynamic>>>(
                   stream: _supabase
                       .from('project_participants')
@@ -55,16 +51,25 @@ class _DocumentsTabState extends State<DocumentsTab> {
                       .eq('user_id', userId!)
                       .order('joined_at', ascending: false),
                   builder: (context, participantSnap) {
-                    if (participantSnap.connectionState == ConnectionState.waiting) {
-                      return const SizedBox(height: 56, child: Center(child: CircularProgressIndicator()));
+                    if (participantSnap.connectionState ==
+                        ConnectionState.waiting) {
+                      return const SizedBox(
+                        height: 56,
+                        child: Center(child: CircularProgressIndicator()),
+                      );
                     }
 
                     final participants = participantSnap.data ?? [];
                     if (participants.isEmpty) {
-                      return const SizedBox(height: 56, child: Center(child: Text('Нет проектов')));
+                      return const SizedBox(
+                        height: 56,
+                        child: Center(child: Text('Нет проектов')),
+                      );
                     }
 
-                    final projectIds = participants.map((p) => p['project_id'] as String).toList();
+                    final projectIds = participants
+                        .map((p) => p['project_id'] as String)
+                        .toList();
 
                     return StreamBuilder<List<Map<String, dynamic>>>(
                       stream: _supabase
@@ -73,42 +78,65 @@ class _DocumentsTabState extends State<DocumentsTab> {
                           .inFilter('id', projectIds)
                           .order('created_at', ascending: false),
                       builder: (context, projectSnap) {
-                        if (projectSnap.connectionState == ConnectionState.waiting) {
-                          return const SizedBox(height: 56, child: Center(child: CircularProgressIndicator()));
+                        if (projectSnap.connectionState ==
+                            ConnectionState.waiting) {
+                          return const SizedBox(
+                            height: 56,
+                            child: Center(child: CircularProgressIndicator()),
+                          );
                         }
 
                         final projects = projectSnap.data ?? [];
                         if (projects.isEmpty) {
-                          return const SizedBox(height: 56, child: Center(child: Text('Проекты не найдены')));
+                          return const SizedBox(
+                            height: 56,
+                            child: Center(child: Text('Проекты не найдены')),
+                          );
                         }
 
-                        // Автовыбор первого проекта
                         if (_selectedProjectId == null && projects.isNotEmpty) {
                           WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted) setState(() => _selectedProjectId = projects.first['id'] as String);
+                            if (mounted)
+                              setState(
+                                () => _selectedProjectId =
+                                    projects.first['id'] as String,
+                              );
                           });
                         }
 
                         final selectedProject = projects.firstWhere(
                           (p) => p['id'] == _selectedProjectId,
-                          orElse: () => projects.isNotEmpty ? projects.first : <String, dynamic>{},
+                          orElse: () => projects.isNotEmpty
+                              ? projects.first
+                              : <String, dynamic>{},
                         );
 
                         return DropdownButton<Map<String, dynamic>>(
-                          value: selectedProject.isNotEmpty ? selectedProject : null,
+                          value: selectedProject.isNotEmpty
+                              ? selectedProject
+                              : null,
                           isExpanded: true,
                           hint: const Text('Выберите проект'),
                           underline: const SizedBox(),
-                          icon: Icon(Icons.keyboard_arrow_down_rounded, color: colorScheme.primary),
-                          items: projects.map((p) => DropdownMenuItem(
-                            value: p,
-                            child: Text(p['name'] as String? ?? 'Без названия'),
-                          )).toList(),
+                          icon: Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: colorScheme.primary,
+                          ),
+                          items: projects
+                              .map(
+                                (p) => DropdownMenuItem(
+                                  value: p,
+                                  child: Text(
+                                    p['name'] as String? ?? 'Без названия',
+                                  ),
+                                ),
+                              )
+                              .toList(),
                           onChanged: (value) {
                             if (value != null) {
                               setState(() {
                                 _selectedProjectId = value['id'] as String;
-                                _selectedStageId = null; // сбрасываем этап
+                                _selectedStageId = null;
                               });
                             }
                           },
@@ -120,7 +148,6 @@ class _DocumentsTabState extends State<DocumentsTab> {
 
                 const SizedBox(height: 16),
 
-                // 2. Выбор этапа (если проект выбран)
                 if (_selectedProjectId != null)
                   FutureBuilder<List<Map<String, dynamic>>>(
                     future: _supabase
@@ -129,25 +156,37 @@ class _DocumentsTabState extends State<DocumentsTab> {
                         .eq('project_id', _selectedProjectId!)
                         .order('created_at', ascending: true),
                     builder: (context, stageSnap) {
-                      if (stageSnap.connectionState == ConnectionState.waiting) {
-                        return const SizedBox(height: 56, child: Center(child: CircularProgressIndicator()));
+                      if (stageSnap.connectionState ==
+                          ConnectionState.waiting) {
+                        return const SizedBox(
+                          height: 56,
+                          child: Center(child: CircularProgressIndicator()),
+                        );
                       }
 
                       final stages = stageSnap.data ?? [];
                       if (stages.isEmpty) {
-                        return const SizedBox(height: 56, child: Center(child: Text('В проекте нет этапов')));
+                        return const SizedBox(
+                          height: 56,
+                          child: Center(child: Text('В проекте нет этапов')),
+                        );
                       }
 
-                      // Автовыбор первого этапа
                       if (_selectedStageId == null && stages.isNotEmpty) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) setState(() => _selectedStageId = stages.first['id'] as String);
+                          if (mounted)
+                            setState(
+                              () => _selectedStageId =
+                                  stages.first['id'] as String,
+                            );
                         });
                       }
 
                       final selectedStage = stages.firstWhere(
                         (s) => s['id'] == _selectedStageId,
-                        orElse: () => stages.isNotEmpty ? stages.first : <String, dynamic>{},
+                        orElse: () => stages.isNotEmpty
+                            ? stages.first
+                            : <String, dynamic>{},
                       );
 
                       return DropdownButton<Map<String, dynamic>>(
@@ -155,14 +194,25 @@ class _DocumentsTabState extends State<DocumentsTab> {
                         isExpanded: true,
                         hint: const Text('Выберите этап'),
                         underline: const SizedBox(),
-                        icon: Icon(Icons.keyboard_arrow_down_rounded, color: colorScheme.primary),
-                        items: stages.map((s) => DropdownMenuItem(
-                          value: s,
-                          child: Text(s['name'] as String? ?? 'Без названия'),
-                        )).toList(),
+                        icon: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: colorScheme.primary,
+                        ),
+                        items: stages
+                            .map(
+                              (s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(
+                                  s['name'] as String? ?? 'Без названия',
+                                ),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (value) {
                           if (value != null) {
-                            setState(() => _selectedStageId = value['id'] as String);
+                            setState(
+                              () => _selectedStageId = value['id'] as String,
+                            );
                           }
                         },
                       );
@@ -171,13 +221,15 @@ class _DocumentsTabState extends State<DocumentsTab> {
 
                 const SizedBox(height: 16),
 
-                // 3. Поиск
                 TextField(
-                  onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                  onChanged: (value) =>
+                      setState(() => _searchQuery = value.toLowerCase()),
                   decoration: InputDecoration(
                     labelText: 'Поиск по названию документа',
                     prefixIcon: const Icon(Icons.search_rounded),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     filled: true,
                     fillColor: colorScheme.surfaceContainerHighest,
                   ),
@@ -186,128 +238,150 @@ class _DocumentsTabState extends State<DocumentsTab> {
             ),
           ),
 
-          // Список документов (для выбранного этапа)
           Expanded(
             child: _selectedProjectId == null
                 ? _emptyState('Выберите проект')
                 : _selectedStageId == null
-                    ? _emptyState('Выберите этап')
-                    : StreamBuilder<List<Map<String, dynamic>>>(
-                        stream: _supabase
-                            .from('stage_documents')
-                            .stream(primaryKey: ['id'])
-                            .eq('stage_id', _selectedStageId!)
-                            .order('uploaded_at', ascending: false),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
+                ? _emptyState('Выберите этап')
+                : StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: _supabase
+                        .from('stage_documents')
+                        .stream(primaryKey: ['id'])
+                        .eq('stage_id', _selectedStageId!)
+                        .order('uploaded_at', ascending: false),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                          if (snapshot.hasError) {
-                            return Center(
-                              child: Text('Ошибка: ${snapshot.error}', style: TextStyle(color: colorScheme.error)),
-                            );
-                          }
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Text(
+                            'Ошибка: ${snapshot.error}',
+                            style: TextStyle(color: colorScheme.error),
+                          ),
+                        );
+                      }
 
-                          final docs = snapshot.data ?? [];
+                      final docs = snapshot.data ?? [];
 
-                          final filtered = docs.where((doc) {
-                            final name = (doc['name'] as String?)?.toLowerCase() ?? '';
-                            return name.contains(_searchQuery);
-                          }).toList();
+                      final filtered = docs.where((doc) {
+                        final name =
+                            (doc['name'] as String?)?.toLowerCase() ?? '';
+                        return name.contains(_searchQuery);
+                      }).toList();
 
-                          if (filtered.isEmpty) {
-                            return _emptyState(
-                              _searchQuery.isNotEmpty
-                                  ? 'По вашему запросу ничего не найдено'
-                                  : 'На этом этапе пока нет документов',
-                            );
-                          }
+                      if (filtered.isEmpty) {
+                        return _emptyState(
+                          _searchQuery.isNotEmpty
+                              ? 'По вашему запросу ничего не найдено'
+                              : 'На этом этапе пока нет документов',
+                        );
+                      }
 
-                          return ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: filtered.length,
-                            itemBuilder: (context, index) {
-                              final doc = filtered[index];
-                              final name = doc['name'] as String? ?? 'Без названия';
-                              final description = doc['description'] as String?;
-                              final fileUrl = doc['file_url'] as String?;
-                              final uploadedAt = doc['uploaded_at'] as String?;
-                              final uploadedBy = doc['uploaded_by'] as String?;
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final doc = filtered[index];
+                          final name = doc['name'] as String? ?? 'Без названия';
+                          final description = doc['description'] as String?;
+                          final fileUrl = doc['file_url'] as String?;
+                          final uploadedAt = doc['uploaded_at'] as String?;
+                          final uploadedBy = doc['uploaded_by'] as String?;
 
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                elevation: 2,
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.all(16),
-                                  leading: CircleAvatar(
-                                    radius: 28,
-                                    backgroundColor: colorScheme.primaryContainer,
-                                    child: Icon(
-                                      Icons.description_rounded,
-                                      color: colorScheme.onPrimaryContainer,
-                                      size: 28,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    name,
-                                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (description != null && description.isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          description,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.bodyMedium?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ],
-                                      const SizedBox(height: 8),
-                                      if (uploadedAt != null)
-                                        Text(
-                                          'Загружен: ${_formatDate(uploadedAt)}',
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      if (uploadedBy != null)
-                                        FutureBuilder<String>(
-                                          future: _supabase
-                                              .from('users')
-                                              .select('full_name')
-                                              .eq('id', uploadedBy)
-                                              .maybeSingle()
-                                              .then((data) => data?['full_name'] as String? ?? 'Неизвестно'),
-                                          builder: (context, snap) {
-                                            return Text(
-                                              'Автор: ${snap.data ?? 'Загрузка...'}',
-                                              style: theme.textTheme.bodySmall?.copyWith(
-                                                color: colorScheme.onSurfaceVariant,
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                    ],
-                                  ),
-                                  trailing: IconButton(
-                                    icon: Icon(Icons.download_rounded, color: colorScheme.primary),
-                                    tooltip: 'Скачать и открыть',
-                                    onPressed: fileUrl != null
-                                        ? () => _downloadAndOpenDocument(fileUrl, name)
-                                        : null,
-                                  ),
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 2,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(16),
+                              leading: CircleAvatar(
+                                radius: 28,
+                                backgroundColor: colorScheme.primaryContainer,
+                                child: Icon(
+                                  Icons.description_rounded,
+                                  color: colorScheme.onPrimaryContainer,
+                                  size: 28,
                                 ),
-                              );
-                            },
+                              ),
+                              title: Text(
+                                name,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (description != null &&
+                                      description.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      description,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 8),
+                                  if (uploadedAt != null)
+                                    Text(
+                                      'Загружен: ${_formatDate(uploadedAt)}',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  if (uploadedBy != null)
+                                    FutureBuilder<String>(
+                                      future: _supabase
+                                          .from('users')
+                                          .select('full_name')
+                                          .eq('id', uploadedBy)
+                                          .maybeSingle()
+                                          .then(
+                                            (data) =>
+                                                data?['full_name'] as String? ??
+                                                'Неизвестно',
+                                          ),
+                                      builder: (context, snap) {
+                                        return Text(
+                                          'Автор: ${snap.data ?? 'Загрузка...'}',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                        );
+                                      },
+                                    ),
+                                ],
+                              ),
+                              trailing: IconButton(
+                                icon: Icon(
+                                  Icons.download_rounded,
+                                  color: colorScheme.primary,
+                                ),
+                                tooltip: 'Скачать и открыть',
+                                onPressed: fileUrl != null
+                                    ? () => _downloadAndOpenDocument(
+                                        fileUrl,
+                                        name,
+                                      )
+                                    : null,
+                              ),
+                            ),
                           );
                         },
-                      ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -327,7 +401,9 @@ class _DocumentsTabState extends State<DocumentsTab> {
           const SizedBox(height: 16),
           Text(
             'Нет документов',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Padding(
@@ -336,8 +412,8 @@ class _DocumentsTabState extends State<DocumentsTab> {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],
@@ -357,13 +433,19 @@ class _DocumentsTabState extends State<DocumentsTab> {
 
       if (result.type != ResultType.done && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Не удалось открыть: ${result.message}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Не удалось открыть: ${result.message}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка скачивания/открытия: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Ошибка скачивания/открытия: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }

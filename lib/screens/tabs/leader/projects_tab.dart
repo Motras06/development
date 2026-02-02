@@ -18,7 +18,6 @@ class _ProjectsTabState extends State<ProjectsTab>
   final _supabase = Supabase.instance.client;
   String? get userId => _supabase.auth.currentUser?.id;
 
-  // Локальный список проектов — теперь мы управляем им сами
   List<Map<String, dynamic>> _projects = [];
   bool _isLoading = true;
   String? _error;
@@ -32,7 +31,7 @@ class _ProjectsTabState extends State<ProjectsTab>
   @override
   void initState() {
     super.initState();
-    _loadProjects(); // загружаем при инициализации
+    _loadProjects(); 
 
     _fabAnimationController = AnimationController(
       vsync: this,
@@ -52,7 +51,6 @@ class _ProjectsTabState extends State<ProjectsTab>
     super.dispose();
   }
 
-  // Загрузка проектов (можно вызывать повторно)
   Future<void> _loadProjects() async {
     if (!mounted) return;
 
@@ -67,7 +65,7 @@ class _ProjectsTabState extends State<ProjectsTab>
           .select()
           .eq('created_by', userId!)
           .order('created_at', ascending: false)
-          .limit(200); // лимит на всякий случай
+          .limit(200);
 
       if (mounted) {
         setState(() {
@@ -85,7 +83,6 @@ class _ProjectsTabState extends State<ProjectsTab>
     }
   }
 
-  // Фильтрация на клиенте
   List<Map<String, dynamic>> get _filteredProjects {
     return _projects.where((p) {
       final nameMatch = (p['name'] as String?)
@@ -182,7 +179,7 @@ class _ProjectsTabState extends State<ProjectsTab>
                                     curve: Curves.easeOutCubic,
                                     child: ProjectCard(
                                       project: project,
-                                      onRefresh: _loadProjects, // ← после delete
+                                      onRefresh: _loadProjects,
                                     ),
                                   );
                                 },
@@ -200,7 +197,7 @@ class _ProjectsTabState extends State<ProjectsTab>
           child: FloatingActionButton.extended(
             onPressed: () => CreateProjectDialog.show(
               context,
-              onSuccess: _loadProjects, // ← после создания/редактирования
+              onSuccess: _loadProjects,
             ),
             backgroundColor: colorScheme.primary,
             foregroundColor: Colors.white,

@@ -1,13 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '/models/enums.dart';
-import 'create_stage_dialog.dart'; // ← добавь импорт, если ещё нет
+import 'create_stage_dialog.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -15,11 +12,7 @@ class StageCard extends StatefulWidget {
   final Map<String, dynamic> stage;
   final VoidCallback? onRefresh;
 
-  const StageCard({
-    super.key,
-    required this.stage,
-    this.onRefresh,
-  });
+  const StageCard({super.key, required this.stage, this.onRefresh});
 
   @override
   State<StageCard> createState() => _StageCardState();
@@ -30,9 +23,9 @@ class _StageCardState extends State<StageCard> {
   List<Map<String, dynamic>> _comments = [];
 
   StageStatus get status => StageStatus.values.firstWhere(
-        (e) => e.name == (widget.stage['status'] as String? ?? 'planned'),
-        orElse: () => StageStatus.planned,
-      );
+    (e) => e.name == (widget.stage['status'] as String? ?? 'planned'),
+    orElse: () => StageStatus.planned,
+  );
 
   @override
   void initState() {
@@ -79,7 +72,10 @@ class _StageCardState extends State<StageCard> {
           maxLines: 5,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
           TextButton(
             onPressed: () async {
               final text = commentController.text.trim();
@@ -103,9 +99,9 @@ class _StageCardState extends State<StageCard> {
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка: $e')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
                 }
               }
             },
@@ -116,7 +112,6 @@ class _StageCardState extends State<StageCard> {
     );
   }
 
-  // Метод редактирования этапа (был пропущен)
   Future<void> _editStage() async {
     CreateStageDialog.show(
       context,
@@ -126,7 +121,6 @@ class _StageCardState extends State<StageCard> {
     );
   }
 
-  // Метод удаления этапа (был пропущен)
   Future<void> _deleteStage() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -154,60 +148,60 @@ class _StageCardState extends State<StageCard> {
       await supabase.from('stages').delete().eq('id', widget.stage['id']);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Этап удалён')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Этап удалён')));
         widget.onRefresh?.call();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка удаления: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e')));
       }
     }
   }
 
   Future<void> _openDocument(Map<String, dynamic> doc) async {
-  final url = doc['file_url'] as String?;
-  if (url == null) return;
+    final url = doc['file_url'] as String?;
+    if (url == null) return;
 
-  try {
-    final dio = Dio();
-    final fileName = doc['name'] ?? 'file_${DateTime.now().millisecondsSinceEpoch}';
+    try {
+      final dio = Dio();
+      final fileName =
+          doc['name'] ?? 'file_${DateTime.now().millisecondsSinceEpoch}';
 
-    // Самый надёжный путь к Downloads (работает без разрешений на Android 11+)
-    final directory = await getDownloadsDirectory();
-    if (directory == null) {
-      throw Exception('Не удалось получить директорию Downloads');
+      final directory = await getDownloadsDirectory();
+      if (directory == null) {
+        throw Exception('Не удалось получить директорию Downloads');
+      }
+
+      final savePath = '${directory.path}/$fileName';
+
+      await dio.download(url, savePath);
+
+      final openResult = await OpenFilex.open(savePath);
+
+      if (openResult.type != ResultType.done && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Не удалось открыть файл: ${openResult.message}'),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Файл скачан в Downloads: $fileName')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка скачивания: $e')));
+      }
+      debugPrint('Ошибка при скачивании файла: $e');
     }
-
-    final savePath = '${directory.path}/$fileName';
-
-    // Скачиваем файл
-    await dio.download(url, savePath);
-
-    // Открываем скачанный файл
-    final openResult = await OpenFilex.open(savePath);
-
-    if (openResult.type != ResultType.done && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось открыть файл: ${openResult.message}')),
-      );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Файл скачан в Downloads: $fileName')),
-      );
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка скачивания: $e')),
-      );
-    }
-    debugPrint('Ошибка при скачивании файла: $e');
   }
-}
 
   IconData _getFileIcon(String? fileName) {
     if (fileName == null) return Icons.insert_drive_file;
@@ -251,11 +245,11 @@ class _StageCardState extends State<StageCard> {
   }
 
   Color _statusColor(StageStatus s) => switch (s) {
-        StageStatus.planned => Colors.grey.shade600,
-        StageStatus.in_progress => Colors.blue,
-        StageStatus.paused => Colors.orange,
-        StageStatus.completed => Colors.green.shade700,
-      };
+    StageStatus.planned => Colors.grey.shade600,
+    StageStatus.in_progress => Colors.blue,
+    StageStatus.paused => Colors.orange,
+    StageStatus.completed => Colors.green.shade700,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -278,7 +272,10 @@ class _StageCardState extends State<StageCard> {
           radius: 24,
           child: Text(
             status.name[0].toUpperCase(),
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         title: Text(
@@ -294,11 +291,11 @@ class _StageCardState extends State<StageCard> {
           children: [
             IconButton(
               icon: const Icon(Icons.edit, color: Colors.blue),
-              onPressed: _editStage, // ← теперь метод существует
+              onPressed: _editStage,
             ),
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: _deleteStage, // ← теперь метод существует
+              onPressed: _deleteStage,
             ),
           ],
         ),
@@ -347,7 +344,9 @@ class _StageCardState extends State<StageCard> {
             ),
           ),
           if (_comments.isNotEmpty)
-            ..._comments.take(5).map(
+            ..._comments
+                .take(5)
+                .map(
                   (c) => ListTile(
                     dense: true,
                     leading: CircleAvatar(
@@ -368,7 +367,9 @@ class _StageCardState extends State<StageCard> {
           if (_comments.length > 5)
             TextButton(
               onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Полный список комментариев — в разработке')),
+                const SnackBar(
+                  content: Text('Полный список комментариев — в разработке'),
+                ),
               ),
               child: const Text('Показать все'),
             ),

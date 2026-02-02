@@ -6,7 +6,7 @@ import '/screens/tabs/leader/projects_tab.dart';
 import '/screens/tabs/leader/stages_tab.dart';
 import '/screens/tabs/leader/team_tab.dart';
 import '/screens/tabs/leader/works_tab.dart';
-import '/screens/tabs/leader/profile_tab.dart'; // ← добавили импорт
+import '/screens/tabs/leader/profile_tab.dart'; 
 
 class LeaderHome extends StatefulWidget {
   const LeaderHome({super.key});
@@ -25,7 +25,7 @@ class _LeaderHomeState extends State<LeaderHome>
     WorksTab(),
     TeamTab(),
     ChatAndDocsTab(),
-    ProfileTab(), // ← добавили
+    ProfileTab(), 
   ];
 
   late AnimationController _animationController;
@@ -130,7 +130,7 @@ class _LeaderHomeState extends State<LeaderHome>
       'Работы',
       'Команда',
       'Чат и документы',
-      'Профиль', // ← добавили
+      'Профиль', 
     ];
 
     return Scaffold(
@@ -191,7 +191,7 @@ class _LeaderHomeState extends State<LeaderHome>
               'Профиль',
               5,
               colorScheme,
-            ), // ← добавили
+            ),
           ],
         ),
       ),

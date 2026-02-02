@@ -17,13 +17,12 @@ class ClientHome extends StatefulWidget {
 class _ClientHomeState extends State<ClientHome> {
   int _selectedIndex = 0;
 
-  // Список экранов для вкладок
   static final List<Widget> _pages = <Widget>[
     const MyProjectsTab(),
     const ProgressTab(),
     const DocumentsTab(),
     const ChatTab(),
-    const ProfileTab()
+    const ProfileTab(),
   ];
 
   void _onItemTapped(int index) {
@@ -32,22 +31,20 @@ class _ClientHomeState extends State<ClientHome> {
     });
   }
 
-  // Функция выхода из аккаунта
   Future<void> _signOut() async {
-  try {
-    await Supabase.instance.client.auth.signOut();
-  } catch (e) {
-    debugPrint('Ошибка при выходе: $e');
-  }
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } catch (e) {
+      debugPrint('Ошибка при выходе: $e');
+    }
 
-  if (mounted) {
-    // Полная очистка навигации и переход на LoginScreen
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false, // Удаляем ВСЕ маршруты из стека
-    );
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -85,14 +82,8 @@ class _ClientHomeState extends State<ClientHome> {
             icon: Icon(Icons.description),
             label: 'Документы',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble),
-            label: 'Чат',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Профиль',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: 'Чат'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Профиль'),
         ],
       ),
     );

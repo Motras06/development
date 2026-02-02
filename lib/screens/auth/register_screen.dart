@@ -41,13 +41,13 @@ class _RegisterScreenState extends State<RegisterScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
-    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
+          ),
+        );
 
     _animationController.forward();
   }
@@ -71,7 +71,12 @@ class _RegisterScreenState extends State<RegisterScreen>
         transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
             position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-                .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
             child: child,
           );
         },
@@ -133,7 +138,6 @@ class _RegisterScreenState extends State<RegisterScreen>
             .update({'primary_role': _selectedRoleValue})
             .eq('id', response.user!.id);
 
-        // Анимация успеха
         await _animationController.reverse();
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
@@ -150,7 +154,10 @@ class _RegisterScreenState extends State<RegisterScreen>
       }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message), backgroundColor: Theme.of(context).colorScheme.error),
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -190,7 +197,6 @@ class _RegisterScreenState extends State<RegisterScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Логотип
                       Hero(
                         tag: 'app_logo',
                         child: Container(
@@ -206,12 +212,15 @@ class _RegisterScreenState extends State<RegisterScreen>
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.construction, size: 60, color: Colors.white),
+                          child: const Icon(
+                            Icons.construction,
+                            size: 60,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 48),
 
-                      // Заголовок
                       Text(
                         'Создать аккаунт',
                         style: theme.textTheme.headlineMedium?.copyWith(
@@ -228,37 +237,49 @@ class _RegisterScreenState extends State<RegisterScreen>
                       ),
                       const SizedBox(height: 48),
 
-                      // Кнопка выбора роли
                       SizedBox(
                         width: double.infinity,
                         height: 64,
                         child: OutlinedButton.icon(
                           onPressed: _selectRole,
                           icon: Icon(
-                            _selectedRoleValue == null ? Icons.person_outline : Icons.check_circle,
-                            color: _selectedRoleValue == null ? colorScheme.outline : colorScheme.primary,
+                            _selectedRoleValue == null
+                                ? Icons.person_outline
+                                : Icons.check_circle,
+                            color: _selectedRoleValue == null
+                                ? colorScheme.outline
+                                : colorScheme.primary,
                           ),
                           label: Text(
-                            _selectedRoleValue == null ? 'Выберите роль' : 'Роль: $_selectedRoleName',
+                            _selectedRoleValue == null
+                                ? 'Выберите роль'
+                                : 'Роль: $_selectedRoleName',
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
-                              color: _selectedRoleValue == null ? colorScheme.onSurface : colorScheme.primary,
+                              color: _selectedRoleValue == null
+                                  ? colorScheme.onSurface
+                                  : colorScheme.primary,
                             ),
                           ),
                           style: OutlinedButton.styleFrom(
                             side: BorderSide(
-                              color: _selectedRoleValue == null ? colorScheme.outline : colorScheme.primary,
+                              color: _selectedRoleValue == null
+                                  ? colorScheme.outline
+                                  : colorScheme.primary,
                               width: 2.5,
                             ),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            backgroundColor: _selectedRoleValue == null ? null : colorScheme.primary.withOpacity(0.08),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            backgroundColor: _selectedRoleValue == null
+                                ? null
+                                : colorScheme.primary.withOpacity(0.08),
                           ),
                         ),
                       ),
                       const SizedBox(height: 32),
 
-                      // Поля ввода
                       TextField(
                         controller: _fullNameController,
                         textCapitalization: TextCapitalization.words,
@@ -312,8 +333,14 @@ class _RegisterScreenState extends State<RegisterScreen>
                           labelText: 'Пароль',
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
-                            icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                           ),
                           filled: true,
                           fillColor: colorScheme.surface.withOpacity(0.8),
@@ -325,7 +352,6 @@ class _RegisterScreenState extends State<RegisterScreen>
                       ),
                       const SizedBox(height: 40),
 
-                      // Кнопка регистрации
                       SizedBox(
                         width: double.infinity,
                         height: 56,
@@ -336,25 +362,33 @@ class _RegisterScreenState extends State<RegisterScreen>
                             foregroundColor: Colors.white,
                             elevation: 8,
                             shadowColor: colorScheme.primary.withOpacity(0.4),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
                           ),
                           child: _isLoading
-                              ? const CircularProgressIndicator(color: Colors.white)
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
                               : const Text(
                                   'Зарегистрироваться',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                         ),
                       ),
                       const SizedBox(height: 24),
 
-                      // Ссылка на вход
                       TextButton(
                         onPressed: () => Navigator.pop(context),
                         child: RichText(
                           text: TextSpan(
                             text: 'Уже есть аккаунт? ',
-                            style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
+                            style: TextStyle(
+                              color: colorScheme.onSurface.withOpacity(0.7),
+                            ),
                             children: [
                               TextSpan(
                                 text: 'Войти',

@@ -13,26 +13,30 @@ class EditWorkDialog {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
 
-// всегда редактируем существующую работу
-
     final nameController = TextEditingController(text: work['name'] as String);
-    final descController = TextEditingController(text: work['description'] as String? ?? '');
+    final descController = TextEditingController(
+      text: work['description'] as String? ?? '',
+    );
 
-    DateTime? startDate = work['start_date'] != null ? DateTime.tryParse(work['start_date']) : null;
-    DateTime? endDate = work['end_date'] != null ? DateTime.tryParse(work['end_date']) : null;
+    DateTime? startDate = work['start_date'] != null
+        ? DateTime.tryParse(work['start_date'])
+        : null;
+    DateTime? endDate = work['end_date'] != null
+        ? DateTime.tryParse(work['end_date'])
+        : null;
 
-    // Статус
     WorkStatus selectedStatus = WorkStatus.values.firstWhere(
       (e) => e.name == (work['status'] as String),
       orElse: () => WorkStatus.todo,
     );
 
-    // Процент завершенности (новое поле — добавим в БД позже)
-    // Пока используем условное поле, например work['progress'] или 0..100
-    // Для реальной работы нужно добавить колонку numeric progress в таблицу works
-    double progress = work['progress'] != null ? (work['progress'] as num).toDouble().clamp(0.0, 100.0) : 0.0;
+    double progress = work['progress'] != null
+        ? (work['progress'] as num).toDouble().clamp(0.0, 100.0)
+        : 0.0;
 
-    final progressController = TextEditingController(text: progress.toInt().toString());
+    final progressController = TextEditingController(
+      text: progress.toInt().toString(),
+    );
 
     showModalBottomSheet(
       context: context,
@@ -56,13 +60,14 @@ class EditWorkDialog {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Ручка
                   Center(
                     child: Container(
                       width: 60,
                       height: 6,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.25),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.25),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
@@ -72,12 +77,11 @@ class EditWorkDialog {
                   Text(
                     'Редактировать работу',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 28),
 
-                  // Название
                   TextField(
                     controller: nameController,
                     textCapitalization: TextCapitalization.sentences,
@@ -85,7 +89,9 @@ class EditWorkDialog {
                       labelText: 'Название работы *',
                       prefixIcon: const Icon(Icons.work_outline),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceVariant.withOpacity(0.4),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide.none,
@@ -94,7 +100,6 @@ class EditWorkDialog {
                   ),
                   const SizedBox(height: 20),
 
-                  // Описание
                   TextField(
                     controller: descController,
                     maxLines: 3,
@@ -102,7 +107,9 @@ class EditWorkDialog {
                       labelText: 'Описание',
                       prefixIcon: const Icon(Icons.description_outlined),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceVariant.withOpacity(0.4),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide.none,
@@ -111,7 +118,6 @@ class EditWorkDialog {
                   ),
                   const SizedBox(height: 24),
 
-                  // Даты
                   Row(
                     children: [
                       Expanded(
@@ -134,8 +140,10 @@ class EditWorkDialog {
 
                   const SizedBox(height: 32),
 
-                  // Статус
-                  Text('Статус работы', style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Статус работы',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 12,
@@ -149,7 +157,9 @@ class EditWorkDialog {
                           _statusName(st),
                           style: TextStyle(
                             color: isSelected ? Colors.white : color,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                         selected: isSelected,
@@ -157,7 +167,10 @@ class EditWorkDialog {
                         backgroundColor: color.withOpacity(0.15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(color: color, width: isSelected ? 2 : 1),
+                          side: BorderSide(
+                            color: color,
+                            width: isSelected ? 2 : 1,
+                          ),
                         ),
                         onSelected: (sel) {
                           if (sel) setState(() => selectedStatus = st);
@@ -169,8 +182,10 @@ class EditWorkDialog {
 
                   const SizedBox(height: 32),
 
-                  // Процент завершенности
-                  Text('Готовность', style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Готовность',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 8),
 
                   Slider(
@@ -197,11 +212,17 @@ class EditWorkDialog {
                         controller: progressController,
                         keyboardType: TextInputType.number,
                         textAlign: TextAlign.center,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         decoration: InputDecoration(
                           suffixText: '%',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                          ),
                         ),
                         onChanged: (v) {
                           final numVal = double.tryParse(v) ?? 0;
@@ -213,7 +234,6 @@ class EditWorkDialog {
 
                   const SizedBox(height: 48),
 
-                  // Кнопка сохранить
                   SizedBox(
                     width: double.infinity,
                     height: 56,
@@ -224,28 +244,42 @@ class EditWorkDialog {
                               try {
                                 final updates = {
                                   'name': nameController.text.trim(),
-                                  'description': descController.text.trim().isEmpty ? null : descController.text.trim(),
-                                  'start_date': startDate?.toIso8601String().split('T')[0],
-                                  'end_date': endDate?.toIso8601String().split('T')[0],
+                                  'description':
+                                      descController.text.trim().isEmpty
+                                      ? null
+                                      : descController.text.trim(),
+                                  'start_date': startDate
+                                      ?.toIso8601String()
+                                      .split('T')[0],
+                                  'end_date': endDate?.toIso8601String().split(
+                                    'T',
+                                  )[0],
                                   'status': selectedStatus.name,
-                                  'updated_at': DateTime.now().toUtc().toIso8601String(),
-                                  // Поле progress — добавьте в БД!
-                                  // 'progress': progress,
+                                  'updated_at': DateTime.now()
+                                      .toUtc()
+                                      .toIso8601String(),
                                 };
 
-                                await supabase.from('works').update(updates).eq('id', work['id']);
+                                await supabase
+                                    .from('works')
+                                    .update(updates)
+                                    .eq('id', work['id']);
 
                                 if (context.mounted) {
                                   Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Работа обновлена')),
+                                    const SnackBar(
+                                      content: Text('Работа обновлена'),
+                                    ),
                                   );
                                   onSaved();
                                 }
                               } catch (e) {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Ошибка сохранения: $e')),
+                                    SnackBar(
+                                      content: Text('Ошибка сохранения: $e'),
+                                    ),
                                   );
                                 }
                               }
@@ -253,12 +287,17 @@ class EditWorkDialog {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
                         elevation: 4,
                       ),
                       child: const Text(
                         'Сохранить изменения',
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -323,14 +362,15 @@ class _DateSelector extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.calendar_today, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              Icons.calendar_today,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 date != null ? date!.toString().split(' ')[0] : label,
-                style: TextStyle(
-                  color: date != null ? null : Colors.grey[600],
-                ),
+                style: TextStyle(color: date != null ? null : Colors.grey[600]),
               ),
             ),
           ],

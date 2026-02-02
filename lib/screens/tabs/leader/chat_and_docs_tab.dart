@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import '/models/enums.dart';
 
 class ChatAndDocsTab extends StatefulWidget {
   const ChatAndDocsTab({super.key});
@@ -11,7 +10,8 @@ class ChatAndDocsTab extends StatefulWidget {
   State<ChatAndDocsTab> createState() => _ChatAndDocsTabState();
 }
 
-class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProviderStateMixin {
+class _ChatAndDocsTabState extends State<ChatAndDocsTab>
+    with SingleTickerProviderStateMixin {
   final supabase = Supabase.instance.client;
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
@@ -151,7 +151,8 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProvid
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty || _currentUserId == null || _selectedProject == null) return;
+    if (text.isEmpty || _currentUserId == null || _selectedProject == null)
+      return;
 
     try {
       await supabase.from('messages').insert({
@@ -165,9 +166,9 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProvid
       _scrollToBottom();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка отправки: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка отправки: $e')));
       }
     }
   }
@@ -204,15 +205,16 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProvid
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      body: SafeArea(  // ← SafeArea гарантирует, что контент не уйдёт под системные панели
+      body: SafeArea(
         child: Column(
           children: [
-            // Выбор проекта (Dropdown)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerLow,
-                border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+                border: Border(
+                  bottom: BorderSide(color: colorScheme.outlineVariant),
+                ),
               ),
               child: DropdownButton<Map<String, dynamic>>(
                 isExpanded: true,
@@ -236,7 +238,6 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProvid
               ),
             ),
 
-            // Список сообщений
             Expanded(
               child: _selectedProject == null
                   ? const Center(child: Text('Выберите проект для чата'))
@@ -251,7 +252,9 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProvid
                           final isMe = msg['sender_id'] == _currentUserId;
                           final isNotification = msg['is_notification'] == true;
                           final text = msg['text'] as String? ?? '';
-                          final time = _formatTime(msg['created_at'] as String?);
+                          final time = _formatTime(
+                            msg['created_at'] as String?,
+                          );
 
                           return GestureDetector(
                             onLongPress: () {
@@ -263,10 +266,13 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProvid
                               }
                             },
                             child: Align(
-                              alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                              alignment: isMe
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
                               child: ConstrainedBox(
                                 constraints: BoxConstraints(
-                                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                                  maxWidth:
+                                      MediaQuery.of(context).size.width * 0.75,
                                 ),
                                 child: Material(
                                   elevation: isMe ? 1 : 0.5,
@@ -274,8 +280,8 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProvid
                                   color: isNotification
                                       ? Colors.orange.shade100
                                       : isMe
-                                          ? colorScheme.primaryContainer
-                                          : colorScheme.surfaceContainerHighest,
+                                      ? colorScheme.primaryContainer
+                                      : colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.only(
                                     topLeft: const Radius.circular(20),
                                     topRight: const Radius.circular(20),
@@ -283,9 +289,14 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProvid
                                     bottomRight: Radius.circular(isMe ? 4 : 20),
                                   ),
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
                                     child: Column(
-                                      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                      crossAxisAlignment: isMe
+                                          ? CrossAxisAlignment.end
+                                          : CrossAxisAlignment.start,
                                       children: [
                                         if (!isMe && !isNotification)
                                           FutureBuilder<String>(
@@ -294,28 +305,42 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProvid
                                                 .select('full_name')
                                                 .eq('id', msg['sender_id'])
                                                 .maybeSingle()
-                                                .then((data) => data?['full_name'] as String? ?? 'Аноним'),
+                                                .then(
+                                                  (data) =>
+                                                      data?['full_name']
+                                                          as String? ??
+                                                      'Аноним',
+                                                ),
                                             builder: (context, snapshot) {
                                               return Text(
                                                 snapshot.data ?? 'Аноним',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
                                               );
                                             },
                                           ),
                                         Text(
                                           text,
                                           style: TextStyle(
-                                            color: isNotification ? Colors.orange.shade900 : null,
+                                            color: isNotification
+                                                ? Colors.orange.shade900
+                                                : null,
                                           ),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           time,
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                            color: isMe
-                                                ? colorScheme.onPrimaryContainer.withOpacity(0.7)
-                                                : colorScheme.onSurfaceVariant,
-                                          ),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: isMe
+                                                    ? colorScheme
+                                                          .onPrimaryContainer
+                                                          .withOpacity(0.7)
+                                                    : colorScheme
+                                                          .onSurfaceVariant,
+                                              ),
                                         ),
                                       ],
                                     ),
@@ -329,7 +354,6 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProvid
                     ),
             ),
 
-            // Панель ввода — теперь внизу, над таббаром
             Container(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               decoration: BoxDecoration(
@@ -355,7 +379,10 @@ class _ChatAndDocsTabState extends State<ChatAndDocsTab> with SingleTickerProvid
                           borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide.none,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
                       ),
                       onSubmitted: (_) => _sendMessage(),
                     ),

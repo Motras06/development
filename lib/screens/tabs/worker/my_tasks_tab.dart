@@ -25,7 +25,6 @@ class _MyTasksTabState extends State<MyTasksTab>
   List<Map<String, dynamic>> _allWorks = [];
 
   late AnimationController _animController;
-  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
@@ -34,10 +33,6 @@ class _MyTasksTabState extends State<MyTasksTab>
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOut,
     );
 
     _loadMyProjects();
@@ -128,9 +123,9 @@ class _MyTasksTabState extends State<MyTasksTab>
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка смены статуса: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка смены статуса: $e')));
       }
     }
   }
@@ -158,8 +153,8 @@ class _MyTasksTabState extends State<MyTasksTab>
                     child: Text(
                       task['name'] ?? 'Прогресс задачи',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
@@ -184,8 +179,9 @@ class _MyTasksTabState extends State<MyTasksTab>
                       divisions: 100,
                       label: '${currentProgress.toInt()}%',
                       activeColor: Theme.of(context).colorScheme.primary,
-                      inactiveColor:
-                          Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                      inactiveColor: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.2),
                       onChanged: (value) {
                         setDialogState(() => currentProgress = value);
                       },
@@ -198,7 +194,9 @@ class _MyTasksTabState extends State<MyTasksTab>
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
@@ -206,11 +204,11 @@ class _MyTasksTabState extends State<MyTasksTab>
                       children: [
                         Text(
                           '${currentProgress.toInt()}%',
-                          style:
-                              Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -318,7 +316,6 @@ class _MyTasksTabState extends State<MyTasksTab>
         child: SafeArea(
           child: Column(
             children: [
-              // Заголовок
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                 child: Row(
@@ -347,7 +344,6 @@ class _MyTasksTabState extends State<MyTasksTab>
                 ),
               ),
 
-              // Фильтры
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -491,7 +487,6 @@ class _MyTasksTabState extends State<MyTasksTab>
                 ),
               ),
 
-              // Список задач
               Expanded(
                 child: _selectedStage == null
                     ? Center(
@@ -543,9 +538,9 @@ class _MyTasksTabState extends State<MyTasksTab>
 
                           _allWorks = snapshot.data ?? [];
 
-                          // Запускаем анимацию появления списка (если захочешь вернуть FadeTransition)
                           if (snapshot.hasData &&
-                              _animController.status == AnimationStatus.dismissed) {
+                              _animController.status ==
+                                  AnimationStatus.dismissed) {
                             _animController.forward(from: 0.0);
                           }
 
@@ -555,12 +550,15 @@ class _MyTasksTabState extends State<MyTasksTab>
                             final nameMatch = (w['name'] as String? ?? '')
                                 .toLowerCase()
                                 .contains(_searchQuery);
-                            final statusMatch = _selectedStatusFilter == null ||
+                            final statusMatch =
+                                _selectedStatusFilter == null ||
                                 w['status'] == _selectedStatusFilter?.name;
-                            final overdueMatch = !_showOverdueOnly ||
+                            final overdueMatch =
+                                !_showOverdueOnly ||
                                 (w['end_date'] != null &&
-                                    DateTime.tryParse(w['end_date'] as String)
-                                        ?.isBefore(now) ==
+                                    DateTime.tryParse(
+                                          w['end_date'] as String,
+                                        )?.isBefore(now) ==
                                         true &&
                                     w['status'] != WorkStatus.done.name);
 
@@ -600,12 +598,11 @@ class _MyTasksTabState extends State<MyTasksTab>
                             );
                           }
 
-                          // Здесь убрана FadeTransition — карточки теперь видны сразу
-                          // Если хочешь вернуть плавное появление → раскомментируй FadeTransition
                           return ListView.separated(
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                             itemCount: filtered.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 12),
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 12),
                             itemBuilder: (context, index) {
                               final work = filtered[index];
                               final progress =
@@ -613,8 +610,8 @@ class _MyTasksTabState extends State<MyTasksTab>
                               final progressColor = progress < 30
                                   ? Colors.red.shade600
                                   : progress < 70
-                                      ? Colors.orange.shade600
-                                      : Colors.green.shade600;
+                                  ? Colors.orange.shade600
+                                  : Colors.green.shade600;
 
                               final status = WorkStatus.values.firstWhere(
                                 (e) =>
@@ -638,7 +635,6 @@ class _MyTasksTabState extends State<MyTasksTab>
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        // Название + описание
                                         Row(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
@@ -646,8 +642,9 @@ class _MyTasksTabState extends State<MyTasksTab>
                                             Container(
                                               padding: const EdgeInsets.all(12),
                                               decoration: BoxDecoration(
-                                                color: _getStatusColor(status)
-                                                    .withOpacity(0.15),
+                                                color: _getStatusColor(
+                                                  status,
+                                                ).withOpacity(0.15),
                                                 borderRadius:
                                                     BorderRadius.circular(16),
                                               ),
@@ -667,11 +664,12 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                     work['name'] as String? ??
                                                         'Без названия',
                                                     style: theme
-                                                        .textTheme.titleLarge
+                                                        .textTheme
+                                                        .titleLarge
                                                         ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
                                                     maxLines: 2,
                                                     overflow:
                                                         TextOverflow.ellipsis,
@@ -684,7 +682,8 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                     Padding(
                                                       padding:
                                                           const EdgeInsets.only(
-                                                              top: 6),
+                                                            top: 6,
+                                                          ),
                                                       child: Text(
                                                         work['description']
                                                             as String,
@@ -692,11 +691,12 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                         overflow: TextOverflow
                                                             .ellipsis,
                                                         style: theme
-                                                            .textTheme.bodyMedium
+                                                            .textTheme
+                                                            .bodyMedium
                                                             ?.copyWith(
-                                                          color: colorScheme
-                                                              .onSurfaceVariant,
-                                                        ),
+                                                              color: colorScheme
+                                                                  .onSurfaceVariant,
+                                                            ),
                                                       ),
                                                     ),
                                                 ],
@@ -706,17 +706,16 @@ class _MyTasksTabState extends State<MyTasksTab>
                                         ),
 
                                         const SizedBox(height: 24),
-                                        // БЛОК УПРАВЛЕНИЯ
                                         Container(
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
                                             color: colorScheme
                                                 .surfaceContainerHighest,
-                                            borderRadius:
-                                                BorderRadius.circular(16),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
                                             border: Border.all(
-                                              color:
-                                                  colorScheme.outlineVariant,
+                                              color: colorScheme.outlineVariant,
                                             ),
                                           ),
                                           child: Column(
@@ -728,30 +727,27 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                     MainAxisAlignment
                                                         .spaceBetween,
                                                 children: [
-                                                  // Статус
                                                   GestureDetector(
                                                     onTap: () {
                                                       showModalBottomSheet(
                                                         context: context,
-                                                        shape:
-                                                            const RoundedRectangleBorder(
+                                                        shape: const RoundedRectangleBorder(
                                                           borderRadius:
-                                                              BorderRadius
-                                                                  .vertical(
-                                                            top: Radius
-                                                                .circular(24),
-                                                          ),
+                                                              BorderRadius.vertical(
+                                                                top:
+                                                                    Radius.circular(
+                                                                      24,
+                                                                    ),
+                                                              ),
                                                         ),
-                                                        builder: (context) =>
-                                                            Container(
+                                                        builder: (context) => Container(
                                                           padding:
-                                                              const EdgeInsets
-                                                                  .fromLTRB(
-                                                            16,
-                                                            24,
-                                                            16,
-                                                            40,
-                                                          ),
+                                                              const EdgeInsets.fromLTRB(
+                                                                16,
+                                                                24,
+                                                                16,
+                                                                40,
+                                                              ),
                                                           child: Column(
                                                             mainAxisSize:
                                                                 MainAxisSize
@@ -766,50 +762,51 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                                     .textTheme
                                                                     .titleLarge
                                                                     ?.copyWith(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w700,
-                                                                ),
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w700,
+                                                                    ),
                                                               ),
                                                               const SizedBox(
-                                                                  height: 16),
-                                                              ...WorkStatus
-                                                                  .values
-                                                                  .map((s) {
+                                                                height: 16,
+                                                              ),
+                                                              ...WorkStatus.values.map((
+                                                                s,
+                                                              ) {
                                                                 final isSelected =
                                                                     status == s;
                                                                 return ListTile(
-                                                                  leading:
-                                                                      Container(
+                                                                  leading: Container(
                                                                     width: 28,
                                                                     height: 28,
-                                                                    decoration:
-                                                                        BoxDecoration(
+                                                                    decoration: BoxDecoration(
                                                                       shape: BoxShape
                                                                           .circle,
                                                                       color:
                                                                           _getStatusColor(
-                                                                              s),
+                                                                            s,
+                                                                          ),
                                                                     ),
                                                                   ),
                                                                   title: Text(
                                                                     _workStatusName(
-                                                                        s),
+                                                                      s,
+                                                                    ),
                                                                     style: TextStyle(
                                                                       fontWeight:
                                                                           isSelected
-                                                                              ? FontWeight
-                                                                                  .bold
-                                                                              : null,
+                                                                          ? FontWeight.bold
+                                                                          : null,
                                                                     ),
                                                                   ),
                                                                   selected:
                                                                       isSelected,
                                                                   selectedTileColor:
                                                                       _getStatusColor(
-                                                                              s)
-                                                                          .withOpacity(
-                                                                              0.15),
+                                                                        s,
+                                                                      ).withOpacity(
+                                                                        0.15,
+                                                                      ),
                                                                   onTap: () {
                                                                     _updateStatus(
                                                                       work['id']
@@ -817,7 +814,8 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                                       s,
                                                                     );
                                                                     Navigator.pop(
-                                                                        context);
+                                                                      context,
+                                                                    );
                                                                   },
                                                                 );
                                                               }),
@@ -827,20 +825,19 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                       );
                                                     },
                                                     child: Container(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                        horizontal: 20,
-                                                        vertical: 12,
-                                                      ),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 20,
+                                                            vertical: 12,
+                                                          ),
                                                       decoration: BoxDecoration(
-                                                        color:
-                                                            _getStatusColor(
-                                                                    status)
-                                                                .withOpacity(
-                                                                    0.2),
+                                                        color: _getStatusColor(
+                                                          status,
+                                                        ).withOpacity(0.2),
                                                         borderRadius:
-                                                            BorderRadius
-                                                                .circular(20),
+                                                            BorderRadius.circular(
+                                                              20,
+                                                            ),
                                                       ),
                                                       child: Row(
                                                         mainAxisSize:
@@ -851,22 +848,26 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                             height: 16,
                                                             decoration:
                                                                 BoxDecoration(
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                              color:
-                                                                  _getStatusColor(
-                                                                      status),
-                                                            ),
+                                                                  shape: BoxShape
+                                                                      .circle,
+                                                                  color:
+                                                                      _getStatusColor(
+                                                                        status,
+                                                                      ),
+                                                                ),
                                                           ),
                                                           const SizedBox(
-                                                              width: 12),
+                                                            width: 12,
+                                                          ),
                                                           Text(
                                                             _workStatusName(
-                                                                status),
+                                                              status,
+                                                            ),
                                                             style: TextStyle(
                                                               color:
                                                                   _getStatusColor(
-                                                                      status),
+                                                                    status,
+                                                                  ),
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w700,
@@ -874,36 +875,38 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                             ),
                                                           ),
                                                           const SizedBox(
-                                                              width: 8),
+                                                            width: 8,
+                                                          ),
                                                           Icon(
                                                             Icons
                                                                 .arrow_drop_down_rounded,
                                                             color:
                                                                 _getStatusColor(
-                                                                    status),
+                                                                  status,
+                                                                ),
                                                           ),
                                                         ],
                                                       ),
                                                     ),
                                                   ),
-
-                                                  // Прогресс
                                                   GestureDetector(
                                                     onTap: () =>
                                                         _showProgressDialog(
-                                                            work),
+                                                          work,
+                                                        ),
                                                     child: Container(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                        horizontal: 20,
-                                                        vertical: 12,
-                                                      ),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 20,
+                                                            vertical: 12,
+                                                          ),
                                                       decoration: BoxDecoration(
                                                         color: progressColor
                                                             .withOpacity(0.2),
                                                         borderRadius:
-                                                            BorderRadius
-                                                                .circular(20),
+                                                            BorderRadius.circular(
+                                                              20,
+                                                            ),
                                                       ),
                                                       child: Row(
                                                         mainAxisSize:
@@ -912,11 +915,13 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                           Icon(
                                                             Icons
                                                                 .percent_rounded,
-                                                            color: progressColor,
+                                                            color:
+                                                                progressColor,
                                                             size: 22,
                                                           ),
                                                           const SizedBox(
-                                                              width: 12),
+                                                            width: 12,
+                                                          ),
                                                           Text(
                                                             '${progress.toInt()}%',
                                                             style: TextStyle(
@@ -947,19 +952,19 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                       .surfaceContainerHighest,
                                                   valueColor:
                                                       AlwaysStoppedAnimation<
-                                                          Color>(progressColor),
+                                                        Color
+                                                      >(progressColor),
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
-
-                                        // Сроки
                                         if (work['start_date'] != null ||
                                             work['end_date'] != null)
                                           Padding(
                                             padding: const EdgeInsets.only(
-                                                top: 16),
+                                              top: 16,
+                                            ),
                                             child: Row(
                                               children: [
                                                 Icon(
@@ -972,11 +977,12 @@ class _MyTasksTabState extends State<MyTasksTab>
                                                 Text(
                                                   'Сроки: ${work['start_date'] ?? '?'} — ${work['end_date'] ?? '?'}',
                                                   style: theme
-                                                      .textTheme.bodyMedium
+                                                      .textTheme
+                                                      .bodyMedium
                                                       ?.copyWith(
-                                                    color: colorScheme
-                                                        .onSurfaceVariant,
-                                                  ),
+                                                        color: colorScheme
+                                                            .onSurfaceVariant,
+                                                      ),
                                                 ),
                                               ],
                                             ),
@@ -988,16 +994,6 @@ class _MyTasksTabState extends State<MyTasksTab>
                               );
                             },
                           );
-
-                          // Если хочешь вернуть анимацию появления — раскомментируй:
-                          /*
-                          return FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: ListView.separated(
-                              ...
-                            ),
-                          );
-                          */
                         },
                       ),
               ),

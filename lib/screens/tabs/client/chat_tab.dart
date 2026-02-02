@@ -77,9 +77,9 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
     } catch (e) {
       debugPrint('Ошибка загрузки проектов: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Не удалось загрузить проекты')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Не удалось загрузить проекты')));
       }
     }
   }
@@ -144,7 +144,8 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty || _currentUserId == null || _selectedProject == null) return;
+    if (text.isEmpty || _currentUserId == null || _selectedProject == null)
+      return;
 
     try {
       await supabase.from('messages').insert({
@@ -204,12 +205,13 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
       body: SafeArea(
         child: Column(
           children: [
-            // Выбор проекта
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerLowest,
-                border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+                border: Border(
+                  bottom: BorderSide(color: colorScheme.outlineVariant),
+                ),
               ),
               child: _projects.isEmpty
                   ? const Text(
@@ -241,7 +243,6 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
                     ),
             ),
 
-            // Сообщения
             Expanded(
               child: _selectedProject == null
                   ? Center(
@@ -281,9 +282,12 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
                           itemBuilder: (context, index) {
                             final msg = _messages[index];
                             final isMe = msg['sender_id'] == _currentUserId;
-                            final isNotification = msg['is_notification'] == true;
+                            final isNotification =
+                                msg['is_notification'] == true;
                             final text = msg['text'] as String? ?? '';
-                            final time = _formatTime(msg['created_at'] as String?);
+                            final time = _formatTime(
+                              msg['created_at'] as String?,
+                            );
 
                             return GestureDetector(
                               onLongPress: () {
@@ -298,10 +302,14 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
                                 }
                               },
                               child: Align(
-                                alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                                alignment: isMe
+                                    ? Alignment.centerRight
+                                    : Alignment.centerLeft,
                                 child: ConstrainedBox(
                                   constraints: BoxConstraints(
-                                    maxWidth: MediaQuery.of(context).size.width * 0.78,
+                                    maxWidth:
+                                        MediaQuery.of(context).size.width *
+                                        0.78,
                                   ),
                                   child: Material(
                                     elevation: isMe ? 1.2 : 0.6,
@@ -309,13 +317,17 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
                                     color: isNotification
                                         ? Colors.amber.shade50
                                         : isMe
-                                            ? colorScheme.primaryContainer
-                                            : colorScheme.surfaceContainerHighest,
+                                        ? colorScheme.primaryContainer
+                                        : colorScheme.surfaceContainerHighest,
                                     borderRadius: BorderRadius.only(
                                       topLeft: const Radius.circular(20),
                                       topRight: const Radius.circular(20),
-                                      bottomLeft: Radius.circular(isMe ? 20 : 6),
-                                      bottomRight: Radius.circular(isMe ? 6 : 20),
+                                      bottomLeft: Radius.circular(
+                                        isMe ? 20 : 6,
+                                      ),
+                                      bottomRight: Radius.circular(
+                                        isMe ? 6 : 20,
+                                      ),
                                     ),
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
@@ -323,8 +335,9 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
                                         vertical: 12,
                                       ),
                                       child: Column(
-                                        crossAxisAlignment:
-                                            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                        crossAxisAlignment: isMe
+                                            ? CrossAxisAlignment.end
+                                            : CrossAxisAlignment.start,
                                         children: [
                                           if (!isMe && !isNotification)
                                             FutureBuilder<String>(
@@ -333,17 +346,27 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
                                                   .select('full_name')
                                                   .eq('id', msg['sender_id'])
                                                   .maybeSingle()
-                                                  .then((data) =>
-                                                      data?['full_name'] as String? ?? 'Неизвестно'),
+                                                  .then(
+                                                    (data) =>
+                                                        data?['full_name']
+                                                            as String? ??
+                                                        'Неизвестно',
+                                                  ),
                                               builder: (context, snapshot) {
                                                 return Padding(
-                                                  padding: const EdgeInsets.only(bottom: 4),
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        bottom: 4,
+                                                      ),
                                                   child: Text(
-                                                    snapshot.data ?? 'Неизвестно',
+                                                    snapshot.data ??
+                                                        'Неизвестно',
                                                     style: TextStyle(
-                                                      fontWeight: FontWeight.w600,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                       fontSize: 13,
-                                                      color: colorScheme.onSurfaceVariant,
+                                                      color: colorScheme
+                                                          .onSurfaceVariant,
                                                     ),
                                                   ),
                                                 );
@@ -353,18 +376,25 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
                                             text,
                                             style: TextStyle(
                                               height: 1.32,
-                                              color: isNotification ? Colors.amber.shade900 : null,
+                                              color: isNotification
+                                                  ? Colors.amber.shade900
+                                                  : null,
                                             ),
                                           ),
                                           const SizedBox(height: 6),
                                           Text(
                                             time,
-                                            style: theme.textTheme.bodySmall?.copyWith(
-                                              fontSize: 11,
-                                              color: isMe
-                                                  ? colorScheme.onPrimaryContainer.withOpacity(0.75)
-                                                  : colorScheme.onSurfaceVariant.withOpacity(0.78),
-                                            ),
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  fontSize: 11,
+                                                  color: isMe
+                                                      ? colorScheme
+                                                            .onPrimaryContainer
+                                                            .withOpacity(0.75)
+                                                      : colorScheme
+                                                            .onSurfaceVariant
+                                                            .withOpacity(0.78),
+                                                ),
                                           ),
                                         ],
                                       ),
@@ -379,7 +409,6 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
                     ),
             ),
 
-            // Поле ввода
             Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               decoration: BoxDecoration(
@@ -401,7 +430,9 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
                         hintText: _selectedProject == null
                             ? 'Выберите проект...'
                             : 'Напишите сообщение...',
-                        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withOpacity(0.6)),
+                        hintStyle: TextStyle(
+                          color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                        ),
                         filled: true,
                         fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
@@ -421,10 +452,12 @@ class _ChatTabState extends State<ChatTab> with SingleTickerProviderStateMixin {
                   const SizedBox(width: 12),
                   FloatingActionButton.small(
                     onPressed: _selectedProject == null ? null : _sendMessage,
-                    backgroundColor:
-                        _selectedProject == null ? colorScheme.outline : colorScheme.primary,
-                    foregroundColor:
-                        _selectedProject == null ? null : colorScheme.onPrimary,
+                    backgroundColor: _selectedProject == null
+                        ? colorScheme.outline
+                        : colorScheme.primary,
+                    foregroundColor: _selectedProject == null
+                        ? null
+                        : colorScheme.onPrimary,
                     elevation: 2,
                     shape: const CircleBorder(),
                     child: const Icon(Icons.send_rounded),

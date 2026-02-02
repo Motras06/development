@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeline_tile/timeline_tile.dart';
-import '/models/enums.dart';
 
 class ProgressTab extends StatefulWidget {
   const ProgressTab({super.key});
@@ -14,7 +13,7 @@ class _ProgressTabState extends State<ProgressTab> {
   final _supabase = Supabase.instance.client;
   final userId = Supabase.instance.client.auth.currentUser?.id;
 
-  String? _selectedProjectId; // Храним только ID проекта
+  String? _selectedProjectId;
   String _searchQuery = '';
 
   @override
@@ -26,7 +25,6 @@ class _ProgressTabState extends State<ProgressTab> {
     return Scaffold(
       body: Column(
         children: [
-          // Фиксированная шапка: Dropdown + поиск
           Container(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             decoration: BoxDecoration(
@@ -48,7 +46,8 @@ class _ProgressTabState extends State<ProgressTab> {
                       .eq('user_id', userId!)
                       .order('joined_at', ascending: false),
                   builder: (context, participantSnapshot) {
-                    if (participantSnapshot.connectionState == ConnectionState.waiting) {
+                    if (participantSnapshot.connectionState ==
+                        ConnectionState.waiting) {
                       return const SizedBox(
                         height: 56,
                         child: Center(child: CircularProgressIndicator()),
@@ -71,7 +70,9 @@ class _ProgressTabState extends State<ProgressTab> {
                       );
                     }
 
-                    final projectIds = participants.map((p) => p['project_id'] as String).toList();
+                    final projectIds = participants
+                        .map((p) => p['project_id'] as String)
+                        .toList();
 
                     return StreamBuilder<List<Map<String, dynamic>>>(
                       stream: _supabase
@@ -80,7 +81,8 @@ class _ProgressTabState extends State<ProgressTab> {
                           .inFilter('id', projectIds)
                           .order('created_at', ascending: false),
                       builder: (context, projectSnapshot) {
-                        if (projectSnapshot.connectionState == ConnectionState.waiting) {
+                        if (projectSnapshot.connectionState ==
+                            ConnectionState.waiting) {
                           return const SizedBox(
                             height: 56,
                             child: Center(child: CircularProgressIndicator()),
@@ -90,7 +92,9 @@ class _ProgressTabState extends State<ProgressTab> {
                         if (projectSnapshot.hasError) {
                           return const SizedBox(
                             height: 56,
-                            child: Center(child: Text('Ошибка загрузки проектов')),
+                            child: Center(
+                              child: Text('Ошибка загрузки проектов'),
+                            ),
                           );
                         }
 
@@ -103,25 +107,28 @@ class _ProgressTabState extends State<ProgressTab> {
                           );
                         }
 
-                        // Автовыбор первого проекта по ID
                         if (_selectedProjectId == null && projects.isNotEmpty) {
                           WidgetsBinding.instance.addPostFrameCallback((_) {
                             if (mounted) {
                               setState(() {
-                                _selectedProjectId = projects.first['id'] as String;
+                                _selectedProjectId =
+                                    projects.first['id'] as String;
                               });
                             }
                           });
                         }
 
-                        // Находим выбранный проект по ID
                         final selectedProject = projects.firstWhere(
                           (p) => p['id'] == _selectedProjectId,
-                          orElse: () => projects.isNotEmpty ? projects.first : <String, dynamic>{},
+                          orElse: () => projects.isNotEmpty
+                              ? projects.first
+                              : <String, dynamic>{},
                         );
 
                         return DropdownButton<Map<String, dynamic>>(
-                          value: selectedProject.isNotEmpty ? selectedProject : null,
+                          value: selectedProject.isNotEmpty
+                              ? selectedProject
+                              : null,
                           isExpanded: true,
                           hint: const Text('Выберите проект'),
                           items: projects.map((p) {
@@ -129,7 +136,8 @@ class _ProgressTabState extends State<ProgressTab> {
                               (part) => part['project_id'] == p['id'],
                               orElse: () => {'role': 'участник'},
                             );
-                            final role = participant['role'] as String? ?? 'участник';
+                            final role =
+                                participant['role'] as String? ?? 'участник';
                             final roleName = _formatRole(role);
                             return DropdownMenuItem(
                               value: p,
@@ -152,20 +160,24 @@ class _ProgressTabState extends State<ProgressTab> {
                 const SizedBox(height: 16),
 
                 TextField(
-                  onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                  onChanged: (value) =>
+                      setState(() => _searchQuery = value.toLowerCase()),
                   decoration: InputDecoration(
                     labelText: 'Поиск по названию этапа',
                     prefixIcon: const Icon(Icons.search_rounded),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     filled: true,
-                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    fillColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                   ),
                 ),
               ],
             ),
           ),
 
-          // Нижняя часть — занимает всё оставшееся пространство
           Expanded(
             child: _selectedProjectId == null
                 ? const Center(
@@ -217,21 +229,21 @@ class _ProgressTabState extends State<ProgressTab> {
 
             return Column(
               children: [
-                // Общий прогресс проекта
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Card(
                     elevation: 3,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         children: [
                           Text(
                             'Общий прогресс проекта',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 20),
                           ClipRRect(
@@ -239,22 +251,23 @@ class _ProgressTabState extends State<ProgressTab> {
                             child: LinearProgressIndicator(
                               value: overall,
                               minHeight: 20,
-                              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                               valueColor: AlwaysStoppedAnimation(
                                 overall >= 0.9
                                     ? Colors.green.shade600
                                     : overall >= 0.6
-                                        ? Colors.blue.shade600
-                                        : Colors.orange.shade600,
+                                    ? Colors.blue.shade600
+                                    : Colors.orange.shade600,
                               ),
                             ),
                           ),
                           const SizedBox(height: 12),
                           Text(
                             '${(overall * 100).toInt()}% завершено',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -262,21 +275,28 @@ class _ProgressTabState extends State<ProgressTab> {
                   ),
                 ),
 
-                // Timeline этапов
                 Expanded(
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
                     itemCount: filteredStages.length,
                     itemBuilder: (context, index) {
                       final stage = filteredStages[index];
                       final name = stage['name'] as String? ?? 'Без названия';
                       final description = stage['description'] as String?;
-                      final statusStr = (stage['status'] as String?)?.toLowerCase() ?? 'planned';
+                      final statusStr =
+                          (stage['status'] as String?)?.toLowerCase() ??
+                          'planned';
                       final start = stage['start_date'] as String?;
                       final end = stage['end_date'] as String?;
 
-                      final endDate = end != null ? DateTime.tryParse(end) : null;
-                      final isOverdue = endDate != null &&
+                      final endDate = end != null
+                          ? DateTime.tryParse(end)
+                          : null;
+                      final isOverdue =
+                          endDate != null &&
                           endDate.isBefore(now) &&
                           statusStr != 'completed';
 
@@ -299,7 +319,10 @@ class _ProgressTabState extends State<ProgressTab> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: _getStageStatusColor(statusStr),
-                                  border: Border.all(color: Colors.white, width: 3),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 3,
+                                  ),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.18),
@@ -321,17 +344,23 @@ class _ProgressTabState extends State<ProgressTab> {
                               ),
                             ),
                             beforeLineStyle: LineStyle(
-                              color: _getStageStatusColor(statusStr).withOpacity(0.5),
+                              color: _getStageStatusColor(
+                                statusStr,
+                              ).withOpacity(0.5),
                               thickness: 5,
                             ),
                             afterLineStyle: LineStyle(
-                              color: _getStageStatusColor(statusStr).withOpacity(0.5),
+                              color: _getStageStatusColor(
+                                statusStr,
+                              ).withOpacity(0.5),
                               thickness: 5,
                             ),
                             endChild: Card(
                               margin: const EdgeInsets.fromLTRB(20, 8, 12, 8),
                               elevation: 2,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                               color: isOverdue ? Colors.red.shade50 : null,
                               child: Padding(
                                 padding: const EdgeInsets.all(16),
@@ -343,36 +372,53 @@ class _ProgressTabState extends State<ProgressTab> {
                                         Icon(
                                           Icons.circle,
                                           size: 14,
-                                          color: _getStageStatusColor(statusStr),
+                                          color: _getStageStatusColor(
+                                            statusStr,
+                                          ),
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: Text(
                                             name,
-                                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                           ),
                                         ),
                                       ],
                                     ),
-                                    if (description != null && description.isNotEmpty) ...[
+                                    if (description != null &&
+                                        description.isNotEmpty) ...[
                                       const SizedBox(height: 8),
                                       Text(
                                         description,
-                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
                                             ),
                                       ),
                                     ],
                                     const SizedBox(height: 16),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           '${start ?? '—'}  —  ${end ?? '—'}',
-                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
                                               ),
                                         ),
                                         if (isOverdue)
@@ -391,13 +437,15 @@ class _ProgressTabState extends State<ProgressTab> {
                                       child: LinearProgressIndicator(
                                         value: progress,
                                         minHeight: 10,
-                                        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                        backgroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHighest,
                                         valueColor: AlwaysStoppedAnimation(
                                           progress >= 0.9
                                               ? Colors.green.shade600
                                               : progress >= 0.6
-                                                  ? Colors.blue.shade600
-                                                  : Colors.orange.shade600,
+                                              ? Colors.blue.shade600
+                                              : Colors.orange.shade600,
                                         ),
                                       ),
                                     ),
@@ -406,8 +454,13 @@ class _ProgressTabState extends State<ProgressTab> {
                                       alignment: Alignment.centerRight,
                                       child: Text(
                                         '${(progress * 100).toInt()}% завершено',
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
                                             ),
                                       ),
                                     ),
@@ -440,12 +493,18 @@ class _ProgressTabState extends State<ProgressTab> {
       final manual = (project?['manual_progress'] as num?)?.toDouble() ?? 0.0;
       if (manual > 0) return (manual / 100).clamp(0.0, 1.0);
 
-      final stages = await _supabase.from('stages').select('id').eq('project_id', projectId);
+      final stages = await _supabase
+          .from('stages')
+          .select('id')
+          .eq('project_id', projectId);
       if (stages.isEmpty) return 0.0;
 
       final stageIds = stages.map((s) => s['id'] as String).toList();
 
-      final works = await _supabase.from('works').select('progress').inFilter('stage_id', stageIds);
+      final works = await _supabase
+          .from('works')
+          .select('progress')
+          .inFilter('stage_id', stageIds);
       if (works.isEmpty) return 0.0;
 
       final sum = works.fold<double>(
@@ -462,7 +521,10 @@ class _ProgressTabState extends State<ProgressTab> {
 
   Future<double> _calculateStageProgress(String stageId) async {
     try {
-      final works = await _supabase.from('works').select('progress').eq('stage_id', stageId);
+      final works = await _supabase
+          .from('works')
+          .select('progress')
+          .eq('stage_id', stageId);
       if (works.isEmpty) return 0.0;
 
       final sum = works.fold<double>(

@@ -1,4 +1,3 @@
-// lib/screens/admin/admin_home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'database_explorer.dart';
@@ -39,19 +38,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Future<void> _signOut() async {
     try {
       await Supabase.instance.client.auth.signOut();
-
       if (!mounted) return;
-
-      // Возвращаемся на экран авторизации / главную
-      // Вариант 1: полностью очистить стек и пойти на начальный экран
       Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-
-      // Вариант 2: просто pop, если у вас уже есть логика редиректа после logout
-      // Navigator.of(context).pop();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Вы вышли из аккаунта')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Вы вышли из аккаунта')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -69,7 +60,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       future: _isAdmin(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
         if (!snapshot.hasData || !snapshot.data!) {
@@ -80,8 +73,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.admin_panel_settings_rounded,
-                        size: 96, color: Theme.of(context).colorScheme.error),
+                    Icon(
+                      Icons.admin_panel_settings_rounded,
+                      size: 96,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                     const SizedBox(height: 24),
                     Text(
                       'Доступ запрещён',
@@ -92,8 +88,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     Text(
                       'Эта панель доступна только администраторам',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 32),
@@ -123,7 +119,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           body: DatabaseExplorer(tableName: _tables[_selectedIndex]),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _selectedIndex,
-            onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+            onDestinationSelected: (index) =>
+                setState(() => _selectedIndex = index),
             destinations: _tables.map((table) {
               return NavigationDestination(
                 icon: _getIconForTable(table),
@@ -150,10 +147,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 
   String _shortTableName(String table) {
-    return table
-        .split('_')
-        .map((e) => e[0].toUpperCase())
-        .take(2)
-        .join();
+    return table.split('_').map((e) => e[0].toUpperCase()).take(2).join();
   }
 }

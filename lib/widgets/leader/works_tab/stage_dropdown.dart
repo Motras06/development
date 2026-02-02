@@ -26,7 +26,9 @@ class StageDropdown extends StatelessWidget {
         color: colorScheme.surface.withOpacity(0.9),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: hasSelection ? colorScheme.primary : colorScheme.outline.withOpacity(0.4),
+          color: hasSelection
+              ? colorScheme.primary
+              : colorScheme.outline.withOpacity(0.4),
           width: hasSelection ? 2.5 : 1.5,
         ),
         boxShadow: [
@@ -71,7 +73,9 @@ class StageDropdown extends StatelessWidget {
               curve: Curves.easeOutCubic,
               child: Icon(
                 Icons.keyboard_arrow_down_rounded,
-                color: hasSelection ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.6),
+                color: hasSelection
+                    ? colorScheme.primary
+                    : colorScheme.onSurface.withOpacity(0.6),
                 size: 28,
               ),
             ),
@@ -85,14 +89,13 @@ class StageDropdown extends StatelessWidget {
             return DropdownMenuItem<Map<String, dynamic>?>(
               value: stage,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.view_week,
-                      color: colorScheme.primary,
-                      size: 20,
-                    ),
+                    Icon(Icons.view_week, color: colorScheme.primary, size: 20),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Text(
@@ -121,7 +124,10 @@ class StageDropdown extends StatelessWidget {
           selectedItemBuilder: (context) {
             return stages.map<Widget>((stage) {
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     Icon(
